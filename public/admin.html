@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Admin · Seedlings 后台</title>
+<style>
+  body { font-family:-apple-system,"PingFang SC",sans-serif; max-width:1000px; margin:0 auto; padding:20px; background:#f5f8f2; }
+  h1,h2 { color:#3a7d44; }
+  .box { background:#fff; padding:18px; border-radius:10px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+  label { display:block; font-size:13px; color:#555; margin:8px 0 4px; }
+  input, textarea { width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; font-family:inherit; font-size:14px; box-sizing:border-box; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  button { background:#3a7d44; color:#fff; border:none; padding:10px 18px; border-radius:6px; cursor:pointer; font-size:14px; }
+  button.danger { background:#c0392b; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th,td { padding:8px; border-bottom:1px solid #eee; text-align:left; vertical-align:top; }
+  .row { display:flex; gap:10px; align-items:center; }
+  img.thumb { width:60px; height:60px; object-fit:cover; border-radius:4px; }
+  .order-items { margin:0; padding-left:18px; }
+</style>
+</head>
+<body>
+<h1>🌱 Admin Console / 管理后台</h1>
+
+<div class="box">
+  <label>Admin password / 管理密码</label>
+  <input id="pw" type="password" placeholder="ADMIN_PASSWORD" />
+  <p style="font-size:12px;color:#888;">Saved in this browser only / 仅保存在本浏览器</p>
+</div>
+
+<div class="box">
+  <h2>Add Seedling / 添加菜苗</h2>
+  <div style="background:#eef6ea;padding:12px;border-radius:8px;margin-bottom:14px;">
+    <label style="margin-top:0;"><b>🤖 Auto-fill from URL / 从网址自动抓取(AI)</b></label>
+    <div style="display:flex;gap:8px;">
+      <input id="scrapeUrl" placeholder="https://... paste a variety page" style="flex:1;" />
+      <button onclick="scrape()" id="scrapeBtn" style="white-space:nowrap;">Fetch / 抓取</button>
+    </div>
+    <div id="scrapeStatus" style="font-size:12px;color:#666;margin-top:6px;"></div>
+  </div>
+  <div style="background:#fff8e1;padding:12px;border-radius:8px;margin-bottom:14px;">
+    <label style="margin-top:0;"><b>✨ Fill from blurb / 根据简介自动填写(AI)</b></label>
+    <textarea id="blurb" rows="3" placeholder="Paste any blurb in any language — Claude will analyze, translate, and fill all fields / 粘贴任意语言的简介,AI 会分析、翻译并填写所有字段"></textarea>
+    <button onclick="fillout()" id="fillBtn" style="margin-top:6px;">Fill out / 自动填写</button>
+    <div id="fillStatus" style="font-size:12px;color:#666;margin-top:6px;"></div>
+  </div>
+  <div class="grid2">
+    <div>
+      <label>Name (English) *</label>
+      <input id="name_en" />
+      <label>Variety (English)</label>
+      <input id="variety_en" />
+      <label>Description (English)</label>
+      <textarea id="description_en" rows="3"></textarea>
+    </div>
+    <div>
+      <label>名称 (中文) *</label>
+      <input id="name_zh" />
+      <label>品种 (中文)</label>
+      <input id="variety_zh" />
+      <label>介绍 (中文)</label>
+      <textarea id="description_zh" rows="3"></textarea>
+    </div>
+  </div>
+  <div class="grid2" style="margin-top:10px;">
+    <div>
+      <label>Stock / 库存数量</label>
+      <input id="stock" type="number" value="10" />
+    </div>
+    <div>
+      <label>Image / 图片 (upload OR url below)</label>
+      <input id="image" type="file" accept="image/*" />
+      <input id="image_url" placeholder="or image URL" style="margin-top:6px;" />
+      <img id="imgPreview" style="max-width:100%;max-height:120px;margin-top:6px;display:none;border-radius:4px;" />
+    </div>
+  </div>
+  <div style="margin-top:14px;">
+    <button onclick="addSeedling()" id="saveBtn">Add / 添加</button>
+    <button onclick="cancelEdit()" id="cancelBtn" style="background:#888;display:none;margin-left:8px;">Cancel / 取消</button>
+    <span id="editingTag" style="margin-left:10px;color:#c0392b;font-weight:600;"></span>
+  </div>
+</div>
+
+<div class="box">
+  <h2>Seedlings / 菜苗列表</h2>
+  <table id="tbl"><thead><tr>
+    <th>Img</th><th>EN / 中文</th><th>Variety</th><th>Stock</th><th></th>
+  </tr></thead><tbody></tbody></table>
+</div>
+
+<div class="box">
+  <h2>Orders / 订单</h2>
+  <div id="orders"></div>
+</div>
+
+<script>
+const pwInput = document.getElementById('pw');
+pwInput.value = localStorage.getItem('pw') || '';
+pwInput.oninput = () => localStorage.setItem('pw', pwInput.value);
+const pw = () => pwInput.value;
+const H = () => ({ 'X-Admin-Password': pw() });
+
+let seedlingMap = {};
+async function loadAll() {
+  const r = await fetch('/api/seedlings');
+  const list = await r.json();
+  seedlingMap = {};
+  for (const s of list) seedlingMap[s.id] = s;
+  const tb = document.querySelector('#tbl tbody');
+  tb.innerHTML = list.map(s => `
+    <tr>
+      <td>${s.image?`<img class="thumb" src="${s.image}">`:'🌱'}</td>
+      <td><b>${esc(s.name_en)}</b><br>${esc(s.name_zh)}</td>
+      <td>${esc(s.variety_en||'')}<br>${esc(s.variety_zh||'')}</td>
+      <td><input type="number" value="${s.stock}" style="width:70px" onchange="updateStock(${s.id}, this.value)"></td>
+      <td>
+        <button onclick="editRow(${s.id})">Edit</button>
+        <button class="danger" onclick="del(${s.id})">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+
+  const r2 = await fetch('/api/admin/orders', { headers: H() });
+  if (!r2.ok) { document.getElementById('orders').innerHTML = '<p style="color:#c0392b">Enter admin password / 请输入密码</p>'; return; }
+  const orders = await r2.json();
+  document.getElementById('orders').innerHTML = orders.length === 0
+    ? '<p style="color:#888">No orders yet / 暂无订单</p>'
+    : orders.map(o => `
+      <div style="border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:10px;">
+        <div><b>#${o.id}</b> · ${esc(o.buyer_name)} · ${esc(o.contact||'')} · <span style="color:#888">${new Date(o.created_at).toLocaleString()}</span>
+          <button class="danger" style="float:right;padding:4px 10px;" onclick="delOrder(${o.id})">×</button>
+        </div>
+        ${o.note ? `<div style="color:#666;margin:4px 0;">📝 ${esc(o.note)}</div>` : ''}
+        <ul class="order-items">
+          ${o.items.map(it => `<li>${esc(it.name_en)} / ${esc(it.name_zh)} ${it.variety_en?`<i style="color:#888">(${esc(it.variety_en)})</i>`:''} × <b>${it.qty}</b></li>`).join('')}
+        </ul>
+      </div>
+    `).join('');
+}
+function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+async function fillout() {
+  const text = document.getElementById('blurb').value.trim();
+  if (!text) return;
+  const btn = document.getElementById('fillBtn');
+  const status = document.getElementById('fillStatus');
+  btn.disabled = true; status.textContent = '🔄 Analyzing & translating... / 分析翻译中...';
+  try {
+    const r = await fetch('/api/admin/fillout', { method:'POST', headers: { ...H(), 'Content-Type':'application/json' }, body: JSON.stringify({ text }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'failed');
+    for (const k of ['name_en','name_zh','variety_en','variety_zh','description_en','description_zh']) {
+      if (j[k] != null) document.getElementById(k).value = j[k];
+    }
+    status.textContent = '✅ Done — review then click Add / 已填好,检查后点添加';
+  } catch (e) {
+    status.textContent = '❌ ' + e.message;
+  } finally { btn.disabled = false; }
+}
+
+async function scrape() {
+  const url = document.getElementById('scrapeUrl').value.trim();
+  if (!url) return;
+  const btn = document.getElementById('scrapeBtn');
+  const status = document.getElementById('scrapeStatus');
+  btn.disabled = true; status.textContent = '🔄 Fetching & translating with Claude... / 抓取并翻译中...';
+  try {
+    const r = await fetch('/api/admin/scrape', { method:'POST', headers: { ...H(), 'Content-Type':'application/json' }, body: JSON.stringify({ url }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'failed');
+    for (const k of ['name_en','name_zh','variety_en','variety_zh','description_en','description_zh']) {
+      if (j[k] != null) document.getElementById(k).value = j[k];
+    }
+    if (j.image_url) {
+      document.getElementById('image_url').value = j.image_url;
+      const p = document.getElementById('imgPreview');
+      p.src = j.image_url; p.style.display = 'block';
+    }
+    status.textContent = '✅ Done — review then click Add / 已填好,检查后点添加';
+  } catch (e) {
+    status.textContent = '❌ ' + e.message;
+  } finally { btn.disabled = false; }
+}
+
+document.getElementById('image_url').addEventListener('input', e => {
+  const p = document.getElementById('imgPreview');
+  if (e.target.value) { p.src = e.target.value; p.style.display = 'block'; }
+  else p.style.display = 'none';
+});
+
+let editingId = null;
+
+function editRow(id) {
+  const s = seedlingMap[id];
+  if (!s) return;
+  editingId = s.id;
+  document.getElementById('name_en').value = s.name_en || '';
+  document.getElementById('name_zh').value = s.name_zh || '';
+  document.getElementById('variety_en').value = s.variety_en || '';
+  document.getElementById('variety_zh').value = s.variety_zh || '';
+  document.getElementById('description_en').value = s.description_en || '';
+  document.getElementById('description_zh').value = s.description_zh || '';
+  document.getElementById('stock').value = s.stock;
+  document.getElementById('image_url').value = s.image || '';
+  const p = document.getElementById('imgPreview');
+  if (s.image) { p.src = s.image; p.style.display = 'block'; } else p.style.display = 'none';
+  document.getElementById('saveBtn').textContent = 'Save changes / 保存修改';
+  document.getElementById('cancelBtn').style.display = 'inline-block';
+  document.getElementById('editingTag').textContent = `Editing #${s.id}`;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelEdit() {
+  editingId = null;
+  for (const k of ['name_en','name_zh','variety_en','variety_zh','description_en','description_zh']) document.getElementById(k).value='';
+  document.getElementById('stock').value = '10';
+  document.getElementById('image').value='';
+  document.getElementById('image_url').value='';
+  document.getElementById('imgPreview').style.display='none';
+  document.getElementById('saveBtn').textContent = 'Add / 添加';
+  document.getElementById('cancelBtn').style.display = 'none';
+  document.getElementById('editingTag').textContent = '';
+}
+
+async function addSeedling() {
+  const fd = new FormData();
+  for (const k of ['name_en','name_zh','variety_en','variety_zh','description_en','description_zh','stock']) {
+    fd.append(k, document.getElementById(k).value);
+  }
+  const imgUrl = document.getElementById('image_url').value.trim();
+  if (imgUrl) fd.append('image_url', imgUrl);
+  const f = document.getElementById('image').files[0];
+  if (f) fd.append('image', f);
+  const url = editingId ? '/api/admin/seedlings/' + editingId : '/api/admin/seedlings';
+  const method = editingId ? 'PUT' : 'POST';
+  const r = await fetch(url, { method, headers: H(), body: fd });
+  const j = await r.json();
+  if (!r.ok) { alert(j.error || 'Error'); return; }
+  cancelEdit();
+  document.getElementById('scrapeUrl').value='';
+  document.getElementById('scrapeStatus').textContent='';
+  loadAll();
+}
+async function updateStock(id, v) {
+  const fd = new FormData(); fd.append('stock', v);
+  await fetch('/api/admin/seedlings/'+id, { method:'PUT', headers: H(), body: fd });
+  loadAll();
+}
+async function del(id) {
+  if (!confirm('Delete? / 确认删除?')) return;
+  await fetch('/api/admin/seedlings/'+id, { method:'DELETE', headers: H() });
+  loadAll();
+}
+async function delOrder(id) {
+  if (!confirm('Delete order? / 删除订单?')) return;
+  await fetch('/api/admin/orders/'+id, { method:'DELETE', headers: H() });
+  loadAll();
+}
+loadAll();
+setInterval(loadAll, 5000);
+</script>
+</body>
+</html>

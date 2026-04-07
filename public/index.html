@@ -1,0 +1,198 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Seedlings 🌱</title>
+<style>
+  :root { --green:#3a7d44; --bg:#f5f8f2; --card:#fff; --muted:#6b7a60; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background:var(--bg); color:#222; }
+  header { background:var(--green); color:#fff; padding:18px 20px; display:flex; justify-content:space-between; align-items:center; gap:12px; position:sticky; top:0; z-index:10; }
+  header h1 { margin:0; font-size:20px; flex:1; }
+  .lang { background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.4); color:#fff; padding:6px 12px; border-radius:16px; cursor:pointer; font-size:13px; text-decoration:none; }
+  #cartBtn { background:#fff; color:var(--green); border:none; padding:8px 14px; border-radius:20px; font-weight:600; cursor:pointer; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:16px; }
+  .card { background:var(--card); border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.06); display:flex; flex-direction:column; }
+  .card img { width:100%; height:180px; object-fit:cover; background:#e8efe2; }
+  .ph { height:180px; display:flex; align-items:center; justify-content:center; background:#e8efe2; font-size:48px; }
+  .body { padding:12px; flex:1; display:flex; flex-direction:column; }
+  .body h3 { margin:0 0 4px; font-size:16px; }
+  .variety { color:var(--muted); font-size:13px; margin-bottom:6px; }
+  .desc { font-size:13px; color:#444; flex:1; white-space:pre-wrap; }
+  .row { display:flex; align-items:center; justify-content:space-between; margin-top:10px; }
+  .stock { font-size:12px; color:var(--muted); }
+  .stock.low { color:#c0392b; }
+  .add { background:var(--green); color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; }
+  .add:disabled { background:#aaa; cursor:not-allowed; }
+  .mask { position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; z-index:20; }
+  .mask.show { display:block; }
+  .drawer { position:fixed; right:0; top:0; bottom:0; width:min(420px, 100%); background:#fff; transform:translateX(100%); transition:transform .25s; z-index:21; display:flex; flex-direction:column; }
+  .drawer.show { transform:none; }
+  .drawer h2 { margin:0; padding:16px; border-bottom:1px solid #eee; font-size:18px; }
+  .items { flex:1; overflow:auto; padding:12px 16px; }
+  .item { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .item img { width:50px; height:50px; object-fit:cover; border-radius:6px; }
+  .item .info { flex:1; font-size:14px; }
+  .qty { display:flex; align-items:center; gap:6px; }
+  .qty button { width:24px; height:24px; border:1px solid #ccc; background:#fff; border-radius:4px; cursor:pointer; }
+  .checkout { padding:16px; border-top:1px solid #eee; }
+  .checkout input, .checkout textarea { width:100%; padding:8px; margin-bottom:8px; border:1px solid #ccc; border-radius:6px; font-family:inherit; font-size:14px; }
+  .checkout button { width:100%; background:var(--green); color:#fff; border:none; padding:12px; border-radius:6px; font-size:15px; cursor:pointer; }
+  .empty { text-align:center; color:#999; padding:40px 0; }
+  .badge { background:#c0392b; color:#fff; border-radius:10px; padding:0 6px; font-size:12px; margin-left:4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">🌱 Seedlings Shop</h1>
+  <a class="lang" id="langLink" href="/cn">中文</a>
+  <button id="cartBtn"><span id="cartLabel">Cart</span> <span class="badge" id="cartCount">0</span></button>
+</header>
+<main><div class="grid" id="grid"></div></main>
+
+<div class="mask" id="mask"></div>
+<aside class="drawer" id="drawer">
+  <h2 id="cartTitle">My Cart</h2>
+  <div class="items" id="cartItems"></div>
+  <div class="checkout">
+    <input id="buyer" />
+    <input id="contact" />
+    <textarea id="note" rows="2"></textarea>
+    <button id="submitBtn"></button>
+  </div>
+</aside>
+
+<script>
+const LANG = location.pathname.startsWith('/cn') ? 'zh' : 'en';
+const T = {
+  en: {
+    title: '🌱 Seedlings Shop', cart: 'Cart', cartTitle: 'My Cart',
+    soldOut: 'Sold out', addCart: 'Add to cart', stock: 'In stock',
+    buyer: 'Your name *', contact: 'Contact (WeChat / phone)', note: 'Notes (pickup time/place, etc.)',
+    submit: 'Place order', empty: "No seedlings yet — check back soon~",
+    cartEmpty: 'Your cart is empty', noStock: 'Not enough stock',
+    needName: 'Please enter your name', needItems: 'Your cart is empty',
+    success: (id) => `Order placed! Order #${id}, the owner will contact you 🌱`,
+    langSwap: '中文', langHref: '/cn'
+  },
+  zh: {
+    title: '🌱 菜苗小铺', cart: '购物车', cartTitle: '我的购物车',
+    soldOut: '已售罄', addCart: '加入购物车', stock: '库存',
+    buyer: '你的名字 *', contact: '联系方式(微信/电话)', note: '备注(取货时间/地点等)',
+    submit: '提交订单', empty: '还没有菜苗,等老板上架~',
+    cartEmpty: '购物车空空如也', noStock: '库存不足',
+    needName: '请填写你的名字', needItems: '购物车是空的',
+    success: (id) => `下单成功!订单号 #${id},老板会联系你 🌱`,
+    langSwap: 'English', langHref: '/'
+  }
+}[LANG];
+
+document.documentElement.lang = LANG === 'zh' ? 'zh-CN' : 'en';
+document.title = T.title;
+document.getElementById('title').textContent = T.title;
+document.getElementById('cartLabel').textContent = T.cart;
+document.getElementById('cartTitle').textContent = T.cartTitle;
+document.getElementById('buyer').placeholder = T.buyer;
+document.getElementById('contact').placeholder = T.contact;
+document.getElementById('note').placeholder = T.note;
+document.getElementById('submitBtn').textContent = T.submit;
+const langLink = document.getElementById('langLink');
+langLink.textContent = T.langSwap;
+langLink.href = T.langHref;
+
+let seedlings = [];
+const cart = {};
+
+const pick = (s, key) => LANG==='zh' ? (s[key+'_zh']||s[key+'_en']||'') : (s[key+'_en']||s[key+'_zh']||'');
+
+async function load() {
+  const r = await fetch('/api/seedlings');
+  seedlings = await r.json();
+  render();
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function render() {
+  const g = document.getElementById('grid');
+  if (seedlings.length === 0) { g.innerHTML = `<p class="empty">${T.empty}</p>`; return; }
+  g.innerHTML = seedlings.map(s => {
+    const inCart = cart[s.id] || 0;
+    const remaining = s.stock - inCart;
+    return `
+    <div class="card">
+      ${s.image ? `<img src="${s.image}" alt="">` : `<div class="ph">🌱</div>`}
+      <div class="body">
+        <h3>${esc(pick(s,'name'))}</h3>
+        <div class="variety">${esc(pick(s,'variety'))}</div>
+        <div class="desc">${esc(pick(s,'description'))}</div>
+        <div class="row">
+          <span class="stock ${s.stock<=3?'low':''}">${T.stock}: ${s.stock}</span>
+          <button class="add" ${remaining<=0?'disabled':''} onclick="addCart(${s.id})">
+            ${remaining<=0?T.soldOut:T.addCart}
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  updateCartUI();
+}
+function addCart(id) {
+  const s = seedlings.find(x=>x.id===id);
+  const cur = cart[id]||0;
+  if (cur+1 > s.stock) { alert(T.noStock); return; }
+  cart[id] = cur+1; render();
+}
+function changeQty(id, d) {
+  const s = seedlings.find(x=>x.id===id);
+  const next = (cart[id]||0)+d;
+  if (next<=0) delete cart[id];
+  else if (next>s.stock) { alert(T.noStock); return; }
+  else cart[id]=next;
+  render();
+}
+function updateCartUI() {
+  const ids = Object.keys(cart);
+  document.getElementById('cartCount').textContent = ids.reduce((a,k)=>a+cart[k],0);
+  const box = document.getElementById('cartItems');
+  if (ids.length===0) { box.innerHTML = `<p class="empty">${T.cartEmpty}</p>`; return; }
+  box.innerHTML = ids.map(id=>{
+    const s = seedlings.find(x=>x.id==id); if (!s) return '';
+    return `<div class="item">
+      ${s.image?`<img src="${s.image}">`:'<div style="width:50px;height:50px;background:#e8efe2;border-radius:6px;display:flex;align-items:center;justify-content:center;">🌱</div>'}
+      <div class="info"><div>${esc(pick(s,'name'))}</div><div style="color:#888;font-size:12px;">${esc(pick(s,'variety'))}</div></div>
+      <div class="qty">
+        <button onclick="changeQty(${s.id},-1)">−</button><span>${cart[id]}</span><button onclick="changeQty(${s.id},1)">+</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+document.getElementById('cartBtn').onclick = ()=>{ document.getElementById('drawer').classList.add('show'); document.getElementById('mask').classList.add('show'); };
+document.getElementById('mask').onclick = ()=>{ document.getElementById('drawer').classList.remove('show'); document.getElementById('mask').classList.remove('show'); };
+document.getElementById('submitBtn').onclick = async ()=>{
+  const buyer = document.getElementById('buyer').value.trim();
+  if (!buyer) { alert(T.needName); return; }
+  const items = Object.keys(cart).map(id=>({id:+id, qty:cart[id]}));
+  if (items.length===0) { alert(T.needItems); return; }
+  const r = await fetch('/api/checkout', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      buyer_name: buyer,
+      contact: document.getElementById('contact').value.trim(),
+      note: document.getElementById('note').value.trim(),
+      items, lang: LANG
+    })
+  });
+  const j = await r.json();
+  if (!r.ok) { alert(j.error || 'Error'); load(); return; }
+  alert(T.success(j.orderId));
+  for (const k in cart) delete cart[k];
+  document.getElementById('buyer').value=''; document.getElementById('contact').value=''; document.getElementById('note').value='';
+  document.getElementById('mask').click();
+  load();
+};
+load();
+setInterval(load, 3000);
+</script>
+</body>
+</html>
