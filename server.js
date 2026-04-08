@@ -250,7 +250,9 @@ Then return ONLY a single valid JSON object, no markdown, no commentary, no surr
   "care_tips_en": "1-3 sentences of variety-specific practical care tips",
   "care_tips_zh": "fluent Chinese translation of care_tips_en",
   "image_url": "direct image URL (jpg/png/webp), or empty string"
-}`;
+}
+
+CRITICAL: Put the final JSON inside a single \`\`\`json ... \`\`\` code fence at the very end of your response. Do not put any other JSON or curly-brace blocks anywhere else in your reply.`;
 
     const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -273,9 +275,22 @@ Then return ONLY a single valid JSON object, no markdown, no commentary, no surr
     const aiJson = await aiRes.json();
     // Concat all text blocks (tool-use blocks are skipped)
     const text = (aiJson.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
-    const jm = text.match(/\{[\s\S]*\}/);
-    if (!jm) return res.status(500).json({ error: 'Could not parse JSON', raw: text.slice(0, 500) });
-    res.json(JSON.parse(jm[0]));
+    // Prefer JSON inside ```json fence, fall back to last {...}
+    let raw;
+    const fence = text.match(/```json\s*([\s\S]*?)```/i) || text.match(/```\s*(\{[\s\S]*?\})\s*```/);
+    if (fence) raw = fence[1].trim();
+    else {
+      // last balanced {...}
+      const idx = text.lastIndexOf('}');
+      const start = text.indexOf('{');
+      if (idx > start && start >= 0) raw = text.slice(start, idx + 1);
+    }
+    if (!raw) return res.status(500).json({ error: 'Could not find JSON in model output', raw: text.slice(0, 500) });
+    try {
+      res.json(JSON.parse(raw));
+    } catch (e) {
+      res.status(500).json({ error: 'JSON parse failed: ' + e.message, raw: raw.slice(0, 500) });
+    }
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
