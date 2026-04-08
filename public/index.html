@@ -124,10 +124,16 @@ function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','
 function render() {
   const g = document.getElementById('grid');
   if (seedlings.length === 0) { g.innerHTML = `<p class="empty">${T.empty}</p>`; updateCartUI(); return; }
-  // Group by category, preserving server order within each group
+  // Group by category. Stored as "English / 中文" — pick the right side per language.
+  const pickCat = (c) => {
+    if (!c) return '';
+    const parts = c.split('/').map(x => x.trim()).filter(Boolean);
+    if (parts.length >= 2) return LANG === 'zh' ? parts[1] : parts[0];
+    return parts[0] || '';
+  };
   const groups = {}; const order = [];
   for (const s of seedlings) {
-    const cat = (s.category || '').trim();
+    const cat = pickCat(s.category);
     if (!(cat in groups)) { groups[cat] = []; order.push(cat); }
     groups[cat].push(s);
   }
