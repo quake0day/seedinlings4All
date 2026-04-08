@@ -38,6 +38,7 @@
       <button onclick="research()" id="researchBtn" style="white-space:nowrap;">Search / 搜索</button>
     </div>
     <div id="researchStatus" style="font-size:12px;color:#666;margin-top:6px;"></div>
+    <pre id="term" style="display:none;background:#0c0c0c;color:#d0d0d0;font-family:Menlo,Consolas,monospace;font-size:12px;line-height:1.45;padding:12px;border-radius:6px;max-height:380px;overflow:auto;margin:10px 0 0;white-space:pre-wrap;word-break:break-word;"></pre>
   </div>
   <div style="background:#eef6ea;padding:12px;border-radius:8px;margin-bottom:14px;">
     <label style="margin-top:0;"><b>🤖 Auto-fill from URL / 从网址自动抓取(AI)</b></label>
@@ -172,22 +173,98 @@ async function research() {
   if (!name) return;
   const btn = document.getElementById('researchBtn');
   const status = document.getElementById('researchStatus');
-  btn.disabled = true; status.textContent = '🔄 Claude is searching the web... / Claude 正在上网搜索...(可能需要 15-30 秒)';
+  const term = document.getElementById('term');
+  term.style.display = 'block';
+  term.innerHTML = '';
+  const COLOR = { hdr:'#7dd3fc', think:'#a78bfa', search:'#fbbf24', text:'#86efac', err:'#f87171', dim:'#888' };
+  const write = (color, text) => {
+    const span = document.createElement('span');
+    span.style.color = color;
+    span.textContent = text;
+    term.appendChild(span);
+    term.scrollTop = term.scrollHeight;
+  };
+  const line = (color, text) => write(color, text + '\n');
+
+  btn.disabled = true;
+  status.textContent = '';
+  line(COLOR.hdr, '$ research "' + name + '"');
+
   try {
-    const r = await fetch('/api/admin/research', { method:'POST', headers: { ...H(), 'Content-Type':'application/json' }, body: JSON.stringify({ name }) });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || 'failed');
-    for (const k of ['name_en','name_zh','variety_en','variety_zh','description_en','description_zh','category','care_tips_en','care_tips_zh']) {
-      if (j[k] != null) document.getElementById(k).value = j[k];
+    const r = await fetch('/api/admin/research-stream', {
+      method: 'POST',
+      headers: { ...H(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    if (!r.ok) { line(COLOR.err, '[error] HTTP ' + r.status); btn.disabled=false; return; }
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    let result = null;
+    let inThinking = false, inText = false;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const blocks = buf.split('\n\n');
+      buf = blocks.pop();
+      for (const blk of blocks) {
+        const m = blk.match(/^data: (.+)$/m);
+        if (!m) continue;
+        let evt; try { evt = JSON.parse(m[1]); } catch { continue; }
+        switch (evt.type) {
+          case 'thinking_start':
+            if (inText) { write(COLOR.dim, '\n'); inText=false; }
+            inThinking = true;
+            line(COLOR.hdr, '\n🧠 Thinking...');
+            break;
+          case 'thinking':
+            write(COLOR.think, evt.text || '');
+            break;
+          case 'search_start':
+            inThinking = inText = false;
+            line(COLOR.hdr, '\n\n🔎 Searching the web...');
+            break;
+          case 'search_input':
+            write(COLOR.search, evt.text || '');
+            break;
+          case 'search_result':
+            write(COLOR.dim, '\n');
+            for (const t of (evt.titles || [])) {
+              line(COLOR.search, '   • ' + t.title + '   ' + t.url);
+            }
+            break;
+          case 'text_start':
+            inThinking = false; inText = true;
+            line(COLOR.hdr, '\n\n📝 Writing answer...');
+            break;
+          case 'text':
+            write(COLOR.text, evt.text || '');
+            break;
+          case 'done':
+            line(COLOR.hdr, '\n\n✅ Done.');
+            result = evt.result;
+            break;
+          case 'error':
+            line(COLOR.err, '\n❌ ' + (evt.message || ''));
+            break;
+        }
+      }
     }
-    if (j.image_url) {
-      document.getElementById('image_url').value = j.image_url;
-      const p = document.getElementById('imgPreview');
-      p.src = j.image_url; p.style.display = 'block';
+    if (result) {
+      for (const k of ['name_en','name_zh','variety_en','variety_zh','description_en','description_zh','category','care_tips_en','care_tips_zh']) {
+        if (result[k] != null) document.getElementById(k).value = result[k];
+      }
+      if (result.image_url) {
+        document.getElementById('image_url').value = result.image_url;
+        const p = document.getElementById('imgPreview');
+        p.src = result.image_url; p.style.display = 'block';
+      }
+      status.textContent = '✅ Form filled — review then click Add / 表单已填,检查后点添加';
     }
-    status.textContent = '✅ Done — review then click Add / 已填好,检查后点添加';
   } catch (e) {
-    status.textContent = '❌ ' + e.message;
+    line(COLOR.err, '\n❌ ' + e.message);
   } finally { btn.disabled = false; }
 }
 

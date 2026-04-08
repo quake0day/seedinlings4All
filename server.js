@@ -226,6 +226,114 @@ Infer reasonable values if the blurb is short. Always fill every field.`;
   }
 });
 
+// Admin: research a variety by name — STREAMING with thinking + web search
+app.post('/api/admin/research-stream', requireAdmin, async (req, res) => {
+  const { name } = req.body || {};
+  if (!name || !name.trim()) { res.status(400).json({ error: 'name required' }); return; }
+  if (!process.env.ANTHROPIC_API_KEY) { res.status(500).json({ error: 'ANTHROPIC_API_KEY not set' }); return; }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders?.();
+  const send = (type, data = {}) => res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`);
+
+  const prompt = `You are researching a plant/seedling variety the user wants to sell. Use web search (be thorough — search for the variety, then for care/growing notes if needed). The variety is:
+
+"${name.trim()}"
+
+Find: common name, cultivar/type, taste, size, growth habit (determinate/indeterminate, height), days to maturity, what makes this variety distinctive vs other varieties, basic care tips, and a representative image URL (direct .jpg/.png/.webp).
+
+Then output a final answer that is ONLY a single JSON object inside a \`\`\`json ... \`\`\` code fence at the very end. Schema:
+{
+  "name_en": "common product name in English",
+  "variety_en": "variety / cultivar info in English (e.g. 'Heirloom Indeterminate Beefsteak')",
+  "description_en": "Start with one '⭐ ' line stating THE single most distinctive trait of THIS variety — then a blank line — then 2-4 sentences: taste, size, growing notes",
+  "name_zh": "natural Chinese name",
+  "variety_zh": "Chinese translation of variety_en",
+  "description_zh": "Same structure as description_en in fluent Chinese: '⭐ '行 + 空行 + 2-4句描述",
+  "category": "broad category in English (e.g. 'Tomato', 'Pepper', 'Greens', 'Herb')",
+  "care_tips_en": "1-3 sentences of variety-specific practical care tips",
+  "care_tips_zh": "fluent Chinese translation of care_tips_en",
+  "image_url": "direct image URL (jpg/png/webp), or empty string"
+}`;
+
+  try {
+    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 8000,
+        stream: true,
+        thinking: { type: 'enabled', budget_tokens: 4000 },
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!upstream.ok) {
+      const t = await upstream.text();
+      send('error', { message: 'Claude API: ' + t.slice(0, 400) });
+      return res.end();
+    }
+
+    let buffer = '';
+    let textOut = '';
+    const decoder = new TextDecoder();
+    const blockTypes = {}; // index -> type
+
+    for await (const chunk of upstream.body) {
+      buffer += decoder.decode(chunk, { stream: true });
+      const parts = buffer.split('\n');
+      buffer = parts.pop();
+      for (const line of parts) {
+        if (!line.startsWith('data: ')) continue;
+        let evt;
+        try { evt = JSON.parse(line.slice(6)); } catch { continue; }
+        if (evt.type === 'content_block_start') {
+          const cb = evt.content_block;
+          blockTypes[evt.index] = cb.type;
+          if (cb.type === 'thinking') send('thinking_start');
+          else if (cb.type === 'text') send('text_start');
+          else if (cb.type === 'server_tool_use' && cb.name === 'web_search') send('search_start');
+          else if (cb.type === 'web_search_tool_result') {
+            const items = Array.isArray(cb.content) ? cb.content : [];
+            const titles = items.filter(i => i.type === 'web_search_result').map(i => ({ title: i.title || '', url: i.url || '' }));
+            send('search_result', { titles });
+          }
+        } else if (evt.type === 'content_block_delta') {
+          const d = evt.delta;
+          if (d.type === 'thinking_delta') send('thinking', { text: d.thinking });
+          else if (d.type === 'text_delta') { textOut += d.text; send('text', { text: d.text }); }
+          else if (d.type === 'input_json_delta') send('search_input', { text: d.partial_json });
+        } else if (evt.type === 'message_stop') {
+          let resultJson = null;
+          const fence = textOut.match(/```json\s*([\s\S]*?)```/i);
+          const raw = fence ? fence[1].trim() : null;
+          if (raw) { try { resultJson = JSON.parse(raw); } catch {} }
+          if (!resultJson) {
+            const m = textOut.match(/\{[\s\S]*\}/);
+            if (m) { try { resultJson = JSON.parse(m[0]); } catch {} }
+          }
+          send('done', { result: resultJson });
+        } else if (evt.type === 'error') {
+          send('error', { message: evt.error?.message || 'unknown' });
+        }
+      }
+    }
+    res.end();
+  } catch (e) {
+    send('error', { message: e.message });
+    res.end();
+  }
+});
+
 // Admin: research a variety by name — Claude web-searches and fills the form
 app.post('/api/admin/research', requireAdmin, async (req, res) => {
   const { name } = req.body || {};
