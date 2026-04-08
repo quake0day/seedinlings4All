@@ -341,7 +341,17 @@ app.get('/api/order/:token', (req, res) => {
 app.get('/order', (_, res) => res.sendFile(path.join(__dirname, 'public', 'order.html')));
 
 app.delete('/api/admin/orders/:id', requireAdmin, (req, res) => {
-  db.prepare('DELETE FROM orders WHERE id=?').run(parseInt(req.params.id, 10));
+  const id = parseInt(req.params.id, 10);
+  const tx = db.transaction(() => {
+    const row = db.prepare('SELECT items_json FROM orders WHERE id=?').get(id);
+    if (!row) return false;
+    const items = JSON.parse(row.items_json);
+    const upd = db.prepare('UPDATE seedlings SET stock = stock + ? WHERE id=?');
+    for (const it of items) upd.run(it.qty, it.id);
+    db.prepare('DELETE FROM orders WHERE id=?').run(id);
+    return true;
+  });
+  if (!tx()) return res.status(404).json({ error: 'not found' });
   res.json({ ok: true });
 });
 
