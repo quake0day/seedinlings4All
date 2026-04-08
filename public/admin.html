@@ -31,6 +31,14 @@
 
 <div class="box">
   <h2>Add Seedling / 添加菜苗</h2>
+  <div style="background:#e6f0ff;padding:12px;border-radius:8px;margin-bottom:14px;">
+    <label style="margin-top:0;"><b>🔎 Research by name (AI web search) / 输入名字让 AI 自己上网搜</b></label>
+    <div style="display:flex;gap:8px;">
+      <input id="researchName" placeholder="e.g. Cherokee Purple Tomato / 切罗基紫番茄" style="flex:1;" />
+      <button onclick="research()" id="researchBtn" style="white-space:nowrap;">Search / 搜索</button>
+    </div>
+    <div id="researchStatus" style="font-size:12px;color:#666;margin-top:6px;"></div>
+  </div>
   <div style="background:#eef6ea;padding:12px;border-radius:8px;margin-bottom:14px;">
     <label style="margin-top:0;"><b>🤖 Auto-fill from URL / 从网址自动抓取(AI)</b></label>
     <div style="display:flex;gap:8px;">
@@ -158,6 +166,30 @@ async function loadAll() {
     `).join('');
 }
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+async function research() {
+  const name = document.getElementById('researchName').value.trim();
+  if (!name) return;
+  const btn = document.getElementById('researchBtn');
+  const status = document.getElementById('researchStatus');
+  btn.disabled = true; status.textContent = '🔄 Claude is searching the web... / Claude 正在上网搜索...(可能需要 15-30 秒)';
+  try {
+    const r = await fetch('/api/admin/research', { method:'POST', headers: { ...H(), 'Content-Type':'application/json' }, body: JSON.stringify({ name }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'failed');
+    for (const k of ['name_en','name_zh','variety_en','variety_zh','description_en','description_zh','category','care_tips_en','care_tips_zh']) {
+      if (j[k] != null) document.getElementById(k).value = j[k];
+    }
+    if (j.image_url) {
+      document.getElementById('image_url').value = j.image_url;
+      const p = document.getElementById('imgPreview');
+      p.src = j.image_url; p.style.display = 'block';
+    }
+    status.textContent = '✅ Done — review then click Add / 已填好,检查后点添加';
+  } catch (e) {
+    status.textContent = '❌ ' + e.message;
+  } finally { btn.disabled = false; }
+}
 
 async function fillout() {
   const text = document.getElementById('blurb').value.trim();

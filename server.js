@@ -189,12 +189,12 @@ Analyze it and return ONLY valid JSON, no markdown:
 {
   "name_en": "common product name in English (e.g. 'Cherokee Purple Tomato')",
   "variety_en": "variety / cultivar info in English (e.g. 'Heirloom Indeterminate')",
-  "description_en": "polished 2-4 sentence English description: taste, size, growing notes",
+  "description_en": "Start with one '⭐ ' line stating THE single most important / distinctive trait of THIS variety (heat tolerance / dwarf / disease resistance / huge fruit / determinate vs indeterminate etc.) — then a blank line — then a polished 2-4 sentence description: taste, size, growing notes.",
   "name_zh": "natural Chinese name",
   "variety_zh": "Chinese for variety_en",
-  "description_zh": "fluent natural Chinese translation of description_en",
+  "description_zh": "Same structure as description_en in fluent Chinese: '⭐ '行 + 空行 + 2-4句描述。",
   "category": "broad category in English (e.g. 'Tomato', 'Pepper', 'Greens', 'Herb')",
-  "care_tips_en": "1-3 sentence practical care tips: light, water, spacing",
+  "care_tips_en": "1-3 sentences of variety-specific practical care tips: light, water, spacing, support, when/how to harvest",
   "care_tips_zh": "fluent Chinese translation of care_tips_en"
 }
 
@@ -220,6 +220,61 @@ Infer reasonable values if the blurb is short. Always fill every field.`;
     const txt = aiJson.content?.[0]?.text || '';
     const jm = txt.match(/\{[\s\S]*\}/);
     if (!jm) return res.status(500).json({ error: 'Could not parse JSON', raw: txt });
+    res.json(JSON.parse(jm[0]));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: research a variety by name — Claude web-searches and fills the form
+app.post('/api/admin/research', requireAdmin, async (req, res) => {
+  const { name } = req.body || {};
+  if (!name || !name.trim()) return res.status(400).json({ error: 'name required' });
+  if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set' });
+  try {
+    const prompt = `You are researching a plant/seedling variety the user wants to sell. Use web search to look up authoritative info (seed catalogs, Baker Creek, Johnny's, university extension sites). The variety is:
+
+"${name}"
+
+Find: common name, cultivar/type info, taste, size, growth habit (determinate/indeterminate, height), days to maturity, what makes this variety distinctive vs others, basic care tips, and a representative image URL (direct .jpg/.png/.webp).
+
+Then return ONLY a single valid JSON object, no markdown, no commentary, no surrounding text:
+{
+  "name_en": "common product name in English",
+  "variety_en": "variety / cultivar info in English (e.g. 'Heirloom Indeterminate Beefsteak')",
+  "description_en": "Start with one '⭐ ' line stating THE single most distinctive trait of THIS variety — then a blank line — then 2-4 sentences: taste, size, growing notes",
+  "name_zh": "natural Chinese name",
+  "variety_zh": "Chinese translation of variety_en",
+  "description_zh": "Same structure as description_en in fluent Chinese: '⭐ '行 + 空行 + 2-4句描述",
+  "category": "broad category in English (e.g. 'Tomato', 'Pepper', 'Greens', 'Herb')",
+  "care_tips_en": "1-3 sentences of variety-specific practical care tips",
+  "care_tips_zh": "fluent Chinese translation of care_tips_en",
+  "image_url": "direct image URL (jpg/png/webp), or empty string"
+}`;
+
+    const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 4000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!aiRes.ok) {
+      const t = await aiRes.text();
+      return res.status(500).json({ error: 'Claude API error: ' + t.slice(0, 500) });
+    }
+    const aiJson = await aiRes.json();
+    // Concat all text blocks (tool-use blocks are skipped)
+    const text = (aiJson.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+    const jm = text.match(/\{[\s\S]*\}/);
+    if (!jm) return res.status(500).json({ error: 'Could not parse JSON', raw: text.slice(0, 500) });
     res.json(JSON.parse(jm[0]));
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -286,12 +341,12 @@ Return ONLY valid JSON, no markdown, no commentary:
 {
   "name_en": "common product name in English (e.g. 'Cherokee Purple Tomato')",
   "variety_en": "variety / cultivar info in English (e.g. 'Heirloom Indeterminate')",
-  "description_en": "2-4 sentence description in English: taste, size, growing notes",
+  "description_en": "Start with one '⭐ ' line stating THE single most important / distinctive trait of THIS variety — then a blank line — then 2-4 sentences: taste, size, growing notes",
   "name_zh": "natural Chinese name",
   "variety_zh": "Chinese translation of variety_en",
-  "description_zh": "fluent Chinese translation of description_en",
+  "description_zh": "Same structure as description_en in fluent Chinese: '⭐ '行 + 空行 + 2-4句描述",
   "category": "broad category in English (e.g. 'Tomato', 'Pepper', 'Greens', 'Herb')",
-  "care_tips_en": "1-3 sentence practical care tips: light, water, spacing, when to transplant",
+  "care_tips_en": "1-3 sentences of variety-specific practical care tips",
   "care_tips_zh": "fluent Chinese translation of care_tips_en",
   "image_url": "the single best image URL from the candidates above, or empty string"
 }`;
