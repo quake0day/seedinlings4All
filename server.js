@@ -4,6 +4,26 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+
+const mailer = (process.env.SMTP_HOST && process.env.SMTP_USER) ? nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT || '465', 10),
+  secure: (process.env.SMTP_SECURE || 'true') === 'true',
+  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+}) : null;
+
+function sendOrderEmail(order, items) {
+  if (!mailer || !process.env.NOTIFY_EMAIL) return;
+  const lines = items.map(it => `  • ${it.name_en} / ${it.name_zh} ${it.variety_en?`(${it.variety_en})`:''}  × ${it.qty}`).join('\n');
+  const text = `New seedling order #${order.id}\n\nBuyer: ${order.buyer_name}\nContact: ${order.contact || '-'}\nNote: ${order.note || '-'}\nTime: ${new Date().toLocaleString()}\n\nItems:\n${lines}\n\nView: ${process.env.PUBLIC_URL || 'http://localhost:3000'}/admin`;
+  mailer.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: process.env.NOTIFY_EMAIL,
+    subject: `🌱 New order #${order.id} from ${order.buyer_name}`,
+    text
+  }).catch(e => console.error('Mail send failed:', e.message));
+}
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'changeme';
@@ -288,6 +308,10 @@ app.post('/api/checkout', (req, res) => {
   });
   try {
     const r = tx();
+    sendOrderEmail({ id: r.id, buyer_name, contact, note }, items.map(it => {
+      const row = db.prepare('SELECT name_en, name_zh, variety_en FROM seedlings WHERE id=?').get(it.id) || {};
+      return { ...row, qty: it.qty };
+    }));
     res.json({ ok: true, orderId: r.id, token: r.token, view_password: r.view_password });
   } catch (e) {
     res.status(400).json({ error: e.message });
