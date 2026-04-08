@@ -60,6 +60,7 @@ async function load() {
           </div>
           <div class="qty">× ${it.qty}</div>
         </div>
+        ${(it.care_tips_en||it.care_tips_zh)?`<div style="background:#f5f8f2;border-left:3px solid #3a7d44;padding:8px 10px;margin:0 0 8px 72px;font-size:13px;color:#444;border-radius:0 6px 6px 0;"><b style="color:#3a7d44;">🌱 Care tips / 种植贴士</b>${it.care_tips_en?`<div style="margin-top:4px;">${esc(it.care_tips_en)}</div>`:''}${it.care_tips_zh?`<div style="margin-top:4px;">${esc(it.care_tips_zh)}</div>`:''}</div>`:''}
       `).join('')}
       <p style="text-align:right;margin-top:14px;"><b>Total / 共: ${total}</b></p>
     </div>

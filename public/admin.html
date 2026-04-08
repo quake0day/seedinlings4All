@@ -67,12 +67,25 @@
     <div>
       <label>Stock / 库存数量</label>
       <input id="stock" type="number" value="10" />
+      <label>Category / 分类 (e.g. Tomato / 番茄)</label>
+      <input id="category" placeholder="Tomato / 番茄" />
+      <label style="margin-top:10px;"><input id="active" type="checkbox" checked /> Active / 上架中</label>
     </div>
     <div>
       <label>Image / 图片 (upload OR url below)</label>
       <input id="image" type="file" accept="image/*" />
       <input id="image_url" placeholder="or image URL" style="margin-top:6px;" />
       <img id="imgPreview" style="max-width:100%;max-height:120px;margin-top:6px;display:none;border-radius:4px;" />
+    </div>
+  </div>
+  <div class="grid2" style="margin-top:10px;">
+    <div>
+      <label>Care tips (English)</label>
+      <textarea id="care_tips_en" rows="2" placeholder="How to plant / water / harvest..."></textarea>
+    </div>
+    <div>
+      <label>种植贴士 (中文)</label>
+      <textarea id="care_tips_zh" rows="2" placeholder="如何种植 / 浇水 / 收获..."></textarea>
     </div>
   </div>
   <div style="margin-top:14px;">
@@ -85,12 +98,12 @@
 <div class="box">
   <h2>Seedlings / 菜苗列表</h2>
   <table id="tbl"><thead><tr>
-    <th>Img</th><th>EN / 中文</th><th>Variety</th><th>Stock</th><th></th>
+    <th>Img</th><th>EN / 中文</th><th>Category</th><th>Stock</th><th>Active</th><th>Sort</th><th></th>
   </tr></thead><tbody></tbody></table>
 </div>
 
 <div class="box">
-  <h2>Orders / 订单</h2>
+  <h2>Orders / 订单 <button onclick="downloadCSV()" style="float:right;font-size:13px;padding:6px 12px;">⬇ Export CSV</button></h2>
   <div id="orders"></div>
 </div>
 
@@ -103,17 +116,23 @@ const H = () => ({ 'X-Admin-Password': pw() });
 
 let seedlingMap = {};
 async function loadAll() {
-  const r = await fetch('/api/seedlings');
+  const r = await fetch('/api/admin/seedlings', { headers: H() });
+  if (!r.ok) { document.querySelector('#tbl tbody').innerHTML = '<tr><td colspan="7" style="color:#c0392b">Enter admin password / 请输入密码</td></tr>'; document.getElementById('orders').innerHTML=''; return; }
   const list = await r.json();
   seedlingMap = {};
   for (const s of list) seedlingMap[s.id] = s;
   const tb = document.querySelector('#tbl tbody');
   tb.innerHTML = list.map(s => `
-    <tr>
+    <tr style="${s.active?'':'opacity:.45;'}">
       <td>${s.image?`<img class="thumb" src="${s.image}">`:'🌱'}</td>
       <td><b>${esc(s.name_en)}</b><br>${esc(s.name_zh)}</td>
-      <td>${esc(s.variety_en||'')}<br>${esc(s.variety_zh||'')}</td>
+      <td>${esc(s.category||'')}</td>
       <td><input type="number" value="${s.stock}" style="width:70px" onchange="updateStock(${s.id}, this.value)"></td>
+      <td><input type="checkbox" ${s.active?'checked':''} onchange="toggleActive(${s.id}, this.checked)"></td>
+      <td>
+        <button onclick="move(${s.id},'up')">↑</button>
+        <button onclick="move(${s.id},'down')">↓</button>
+      </td>
       <td>
         <button onclick="editRow(${s.id})">Edit</button>
         <button class="danger" onclick="del(${s.id})">Delete</button>
@@ -150,7 +169,7 @@ async function fillout() {
     const r = await fetch('/api/admin/fillout', { method:'POST', headers: { ...H(), 'Content-Type':'application/json' }, body: JSON.stringify({ text }) });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || 'failed');
-    for (const k of ['name_en','name_zh','variety_en','variety_zh','description_en','description_zh']) {
+    for (const k of ['name_en','name_zh','variety_en','variety_zh','description_en','description_zh','category','care_tips_en','care_tips_zh']) {
       if (j[k] != null) document.getElementById(k).value = j[k];
     }
     status.textContent = '✅ Done — review then click Add / 已填好,检查后点添加';
@@ -169,7 +188,7 @@ async function scrape() {
     const r = await fetch('/api/admin/scrape', { method:'POST', headers: { ...H(), 'Content-Type':'application/json' }, body: JSON.stringify({ url }) });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || 'failed');
-    for (const k of ['name_en','name_zh','variety_en','variety_zh','description_en','description_zh']) {
+    for (const k of ['name_en','name_zh','variety_en','variety_zh','description_en','description_zh','category','care_tips_en','care_tips_zh']) {
       if (j[k] != null) document.getElementById(k).value = j[k];
     }
     if (j.image_url) {
@@ -202,6 +221,10 @@ function editRow(id) {
   document.getElementById('description_en').value = s.description_en || '';
   document.getElementById('description_zh').value = s.description_zh || '';
   document.getElementById('stock').value = s.stock;
+  document.getElementById('category').value = s.category || '';
+  document.getElementById('active').checked = !!s.active;
+  document.getElementById('care_tips_en').value = s.care_tips_en || '';
+  document.getElementById('care_tips_zh').value = s.care_tips_zh || '';
   document.getElementById('image_url').value = s.image || '';
   const p = document.getElementById('imgPreview');
   if (s.image) { p.src = s.image; p.style.display = 'block'; } else p.style.display = 'none';
@@ -213,8 +236,9 @@ function editRow(id) {
 
 function cancelEdit() {
   editingId = null;
-  for (const k of ['name_en','name_zh','variety_en','variety_zh','description_en','description_zh']) document.getElementById(k).value='';
+  for (const k of ['name_en','name_zh','variety_en','variety_zh','description_en','description_zh','category','care_tips_en','care_tips_zh']) document.getElementById(k).value='';
   document.getElementById('stock').value = '10';
+  document.getElementById('active').checked = true;
   document.getElementById('image').value='';
   document.getElementById('image_url').value='';
   document.getElementById('imgPreview').style.display='none';
@@ -225,9 +249,10 @@ function cancelEdit() {
 
 async function addSeedling() {
   const fd = new FormData();
-  for (const k of ['name_en','name_zh','variety_en','variety_zh','description_en','description_zh','stock']) {
+  for (const k of ['name_en','name_zh','variety_en','variety_zh','description_en','description_zh','stock','category','care_tips_en','care_tips_zh']) {
     fd.append(k, document.getElementById(k).value);
   }
+  fd.append('active', document.getElementById('active').checked ? '1' : '0');
   const imgUrl = document.getElementById('image_url').value.trim();
   if (imgUrl) fd.append('image_url', imgUrl);
   const f = document.getElementById('image').files[0];
@@ -246,6 +271,24 @@ async function updateStock(id, v) {
   const fd = new FormData(); fd.append('stock', v);
   await fetch('/api/admin/seedlings/'+id, { method:'PUT', headers: H(), body: fd });
   loadAll();
+}
+async function toggleActive(id, on) {
+  const fd = new FormData(); fd.append('active', on ? '1' : '0');
+  await fetch('/api/admin/seedlings/'+id, { method:'PUT', headers: H(), body: fd });
+  loadAll();
+}
+async function move(id, dir) {
+  await fetch('/api/admin/seedlings/'+id+'/move', { method:'POST', headers: { ...H(), 'Content-Type':'application/json' }, body: JSON.stringify({ dir }) });
+  loadAll();
+}
+async function downloadCSV() {
+  const r = await fetch('/api/admin/orders.csv', { headers: H() });
+  if (!r.ok) { alert('Need admin password'); return; }
+  const blob = await r.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'orders-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
 }
 async function del(id) {
   if (!confirm('Delete? / 确认删除?')) return;

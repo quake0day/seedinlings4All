@@ -13,7 +13,9 @@
   .lang { background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.4); color:#fff; padding:6px 12px; border-radius:16px; cursor:pointer; font-size:13px; text-decoration:none; }
   #cartBtn { background:#fff; color:var(--green); border:none; padding:8px 14px; border-radius:20px; font-weight:600; cursor:pointer; }
   main { max-width: 1100px; margin: 0 auto; padding: 20px; }
-  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:16px; }
+  .grid { display:block; }
+  .cat-title { color:var(--green); border-bottom:2px solid var(--green); padding-bottom:6px; margin:24px 0 12px; font-size:18px; }
+  .cat-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:16px; }
   .card { background:var(--card); border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.06); display:flex; flex-direction:column; }
   .card img { width:100%; height:180px; object-fit:cover; background:#e8efe2; }
   .ph { height:180px; display:flex; align-items:center; justify-content:center; background:#e8efe2; font-size:48px; }
@@ -121,25 +123,36 @@ async function load() {
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function render() {
   const g = document.getElementById('grid');
-  if (seedlings.length === 0) { g.innerHTML = `<p class="empty">${T.empty}</p>`; return; }
-  g.innerHTML = seedlings.map(s => {
-    const inCart = cart[s.id] || 0;
-    const remaining = s.stock - inCart;
-    return `
-    <div class="card">
-      ${s.image ? `<img src="${s.image}" alt="">` : `<div class="ph">🌱</div>`}
-      <div class="body">
-        <h3>${esc(pick(s,'name'))}</h3>
-        <div class="variety">${esc(pick(s,'variety'))}</div>
-        <div class="desc">${esc(pick(s,'description'))}</div>
-        <div class="row">
-          <span class="stock ${s.stock<=3?'low':''}">${T.stock}: ${s.stock}</span>
-          <button class="add" ${remaining<=0?'disabled':''} onclick="addCart(${s.id})">
-            ${remaining<=0?T.soldOut:T.addCart}
-          </button>
+  if (seedlings.length === 0) { g.innerHTML = `<p class="empty">${T.empty}</p>`; updateCartUI(); return; }
+  // Group by category, preserving server order within each group
+  const groups = {}; const order = [];
+  for (const s of seedlings) {
+    const cat = (s.category || '').trim();
+    if (!(cat in groups)) { groups[cat] = []; order.push(cat); }
+    groups[cat].push(s);
+  }
+  g.innerHTML = order.map(cat => {
+    const items = groups[cat].map(s => {
+      const inCart = cart[s.id] || 0;
+      const remaining = s.stock - inCart;
+      return `
+      <div class="card">
+        ${s.image ? `<img src="${s.image}" alt="">` : `<div class="ph">🌱</div>`}
+        <div class="body">
+          <h3>${esc(pick(s,'name'))}</h3>
+          <div class="variety">${esc(pick(s,'variety'))}</div>
+          <div class="desc">${esc(pick(s,'description'))}</div>
+          <div class="row">
+            <span class="stock ${s.stock<=3?'low':''}">${T.stock}: ${s.stock}</span>
+            <button class="add" ${remaining<=0?'disabled':''} onclick="addCart(${s.id})">
+              ${remaining<=0?T.soldOut:T.addCart}
+            </button>
+          </div>
         </div>
-      </div>
-    </div>`;
+      </div>`;
+    }).join('');
+    const heading = cat ? `<h2 class="cat-title">${esc(cat)}</h2>` : '';
+    return `${heading}<div class="cat-grid">${items}</div>`;
   }).join('');
   updateCartUI();
 }

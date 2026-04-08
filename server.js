@@ -15,8 +15,10 @@ const mailer = (process.env.SMTP_HOST && process.env.SMTP_USER) ? nodemailer.cre
 
 function sendOrderEmail(order, items) {
   if (!mailer || !process.env.NOTIFY_EMAIL) return;
+  const base = process.env.PUBLIC_URL || 'http://localhost:3000';
+  const customerLink = `${base}/order?t=${order.token}&pw=${order.view_password}`;
   const lines = items.map(it => `  • ${it.name_en} / ${it.name_zh} ${it.variety_en?`(${it.variety_en})`:''}  × ${it.qty}`).join('\n');
-  const text = `New seedling order #${order.id}\n\nBuyer: ${order.buyer_name}\nContact: ${order.contact || '-'}\nNote: ${order.note || '-'}\nTime: ${new Date().toLocaleString()}\n\nItems:\n${lines}\n\nView: ${process.env.PUBLIC_URL || 'http://localhost:3000'}/admin`;
+  const text = `New seedling order #${order.id}\n\nBuyer: ${order.buyer_name}\nContact: ${order.contact || '-'}\nNote: ${order.note || '-'}\nTime: ${new Date().toLocaleString()}\n\nItems:\n${lines}\n\nCustomer order link (one-click view):\n${customerLink}\n\nAdmin: ${base}/admin`;
   mailer.sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: process.env.NOTIFY_EMAIL,
@@ -58,17 +60,23 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at INTEGER NOT NULL
 );
 `);
-// Migration: add token + view_password columns if missing
-const cols = db.prepare("PRAGMA table_info(orders)").all().map(c => c.name);
-if (!cols.includes('token')) db.exec("ALTER TABLE orders ADD COLUMN token TEXT");
-if (!cols.includes('view_password')) db.exec("ALTER TABLE orders ADD COLUMN view_password TEXT");
+// Migrations
+const ocols = db.prepare("PRAGMA table_info(orders)").all().map(c => c.name);
+if (!ocols.includes('token')) db.exec("ALTER TABLE orders ADD COLUMN token TEXT");
+if (!ocols.includes('view_password')) db.exec("ALTER TABLE orders ADD COLUMN view_password TEXT");
+const scols = db.prepare("PRAGMA table_info(seedlings)").all().map(c => c.name);
+if (!scols.includes('category'))      db.exec("ALTER TABLE seedlings ADD COLUMN category TEXT DEFAULT ''");
+if (!scols.includes('active'))        db.exec("ALTER TABLE seedlings ADD COLUMN active INTEGER NOT NULL DEFAULT 1");
+if (!scols.includes('sort_order'))    db.exec("ALTER TABLE seedlings ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0");
+if (!scols.includes('care_tips_en'))  db.exec("ALTER TABLE seedlings ADD COLUMN care_tips_en TEXT DEFAULT ''");
+if (!scols.includes('care_tips_zh'))  db.exec("ALTER TABLE seedlings ADD COLUMN care_tips_zh TEXT DEFAULT ''");
 
 // Enrich items with current seedling names (so renames in admin propagate to orders)
 function enrichItems(items) {
-  const stmt = db.prepare('SELECT name_en, name_zh, variety_en, variety_zh, image FROM seedlings WHERE id=?');
+  const stmt = db.prepare('SELECT name_en, name_zh, variety_en, variety_zh, image, care_tips_en, care_tips_zh FROM seedlings WHERE id=?');
   return items.map(it => {
     const cur = stmt.get(it.id);
-    if (cur) return { ...it, name_en: cur.name_en, name_zh: cur.name_zh, variety_en: cur.variety_en, variety_zh: cur.variety_zh, image: cur.image };
+    if (cur) return { ...it, name_en: cur.name_en, name_zh: cur.name_zh, variety_en: cur.variety_en, variety_zh: cur.variety_zh, image: cur.image, care_tips_en: cur.care_tips_en, care_tips_zh: cur.care_tips_zh };
     return it;
   });
 }
@@ -98,21 +106,32 @@ app.get('/cn', (_, res) => res.sendFile(path.join(__dirname, 'public', 'index.ht
 app.get('/admin', (_, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Public: list seedlings
+// Public: list active seedlings (ordered by sort_order, then id)
 app.get('/api/seedlings', (req, res) => {
-  const rows = db.prepare('SELECT * FROM seedlings ORDER BY id DESC').all();
+  const rows = db.prepare('SELECT * FROM seedlings WHERE active=1 ORDER BY sort_order ASC, id DESC').all();
+  res.json(rows);
+});
+
+// Admin: list ALL seedlings (incl. inactive)
+app.get('/api/admin/seedlings', requireAdmin, (req, res) => {
+  const rows = db.prepare('SELECT * FROM seedlings ORDER BY sort_order ASC, id DESC').all();
   res.json(rows);
 });
 
 // Admin: create seedling
 app.post('/api/admin/seedlings', requireAdmin, upload.single('image'), (req, res) => {
-  const { name_en, name_zh, variety_en, variety_zh, description_en, description_zh, stock } = req.body;
-  if (!name_en || !name_zh) return res.status(400).json({ error: 'name_en and name_zh required' });
-  const image = req.file ? '/uploads/' + req.file.filename : (req.body.image_url || null);
+  const b = req.body;
+  if (!b.name_en || !b.name_zh) return res.status(400).json({ error: 'name_en and name_zh required' });
+  const image = req.file ? '/uploads/' + req.file.filename : (b.image_url || null);
+  const maxSort = db.prepare('SELECT COALESCE(MAX(sort_order),0) AS m FROM seedlings').get().m;
   const info = db.prepare(
-    `INSERT INTO seedlings (name_en, name_zh, variety_en, variety_zh, description_en, description_zh, image, stock, created_at)
-     VALUES (?,?,?,?,?,?,?,?,?)`
-  ).run(name_en, name_zh, variety_en||'', variety_zh||'', description_en||'', description_zh||'', image, parseInt(stock||'0',10), Date.now());
+    `INSERT INTO seedlings (name_en, name_zh, variety_en, variety_zh, description_en, description_zh, image, stock, category, active, sort_order, care_tips_en, care_tips_zh, created_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+  ).run(b.name_en, b.name_zh, b.variety_en||'', b.variety_zh||'', b.description_en||'', b.description_zh||'',
+        image, parseInt(b.stock||'0',10), b.category||'',
+        b.active != null ? parseInt(b.active,10) : 1,
+        maxSort + 10,
+        b.care_tips_en||'', b.care_tips_zh||'', Date.now());
   res.json({ id: info.lastInsertRowid });
 });
 
@@ -123,9 +142,29 @@ app.put('/api/admin/seedlings/:id', requireAdmin, upload.single('image'), (req, 
   if (!cur) return res.status(404).json({ error: 'not found' });
   const f = (k) => req.body[k] != null ? req.body[k] : cur[k];
   const stock = req.body.stock != null ? parseInt(req.body.stock, 10) : cur.stock;
+  const active = req.body.active != null ? parseInt(req.body.active, 10) : cur.active;
+  const sort_order = req.body.sort_order != null ? parseInt(req.body.sort_order, 10) : cur.sort_order;
   const image = req.file ? '/uploads/' + req.file.filename : (req.body.image_url || cur.image);
-  db.prepare(`UPDATE seedlings SET name_en=?, name_zh=?, variety_en=?, variety_zh=?, description_en=?, description_zh=?, image=?, stock=? WHERE id=?`)
-    .run(f('name_en'), f('name_zh'), f('variety_en'), f('variety_zh'), f('description_en'), f('description_zh'), image, stock, id);
+  db.prepare(`UPDATE seedlings SET name_en=?, name_zh=?, variety_en=?, variety_zh=?, description_en=?, description_zh=?, image=?, stock=?, category=?, active=?, sort_order=?, care_tips_en=?, care_tips_zh=? WHERE id=?`)
+    .run(f('name_en'), f('name_zh'), f('variety_en'), f('variety_zh'), f('description_en'), f('description_zh'),
+         image, stock, f('category'), active, sort_order, f('care_tips_en'), f('care_tips_zh'), id);
+  res.json({ ok: true });
+});
+
+// Admin: nudge sort up/down (swap with neighbor)
+app.post('/api/admin/seedlings/:id/move', requireAdmin, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const dir = req.body && req.body.dir === 'down' ? 'down' : 'up';
+  const cur = db.prepare('SELECT * FROM seedlings WHERE id=?').get(id);
+  if (!cur) return res.status(404).json({ error: 'not found' });
+  const neighbor = dir === 'up'
+    ? db.prepare('SELECT * FROM seedlings WHERE sort_order < ? OR (sort_order = ? AND id > ?) ORDER BY sort_order DESC, id ASC LIMIT 1').get(cur.sort_order, cur.sort_order, cur.id)
+    : db.prepare('SELECT * FROM seedlings WHERE sort_order > ? OR (sort_order = ? AND id < ?) ORDER BY sort_order ASC, id DESC LIMIT 1').get(cur.sort_order, cur.sort_order, cur.id);
+  if (!neighbor) return res.json({ ok: true });
+  db.transaction(() => {
+    db.prepare('UPDATE seedlings SET sort_order=? WHERE id=?').run(neighbor.sort_order, cur.id);
+    db.prepare('UPDATE seedlings SET sort_order=? WHERE id=?').run(cur.sort_order, neighbor.id);
+  })();
   res.json({ ok: true });
 });
 
@@ -153,7 +192,10 @@ Analyze it and return ONLY valid JSON, no markdown:
   "description_en": "polished 2-4 sentence English description: taste, size, growing notes",
   "name_zh": "natural Chinese name",
   "variety_zh": "Chinese for variety_en",
-  "description_zh": "fluent natural Chinese translation of description_en"
+  "description_zh": "fluent natural Chinese translation of description_en",
+  "category": "broad category in English (e.g. 'Tomato', 'Pepper', 'Greens', 'Herb')",
+  "care_tips_en": "1-3 sentence practical care tips: light, water, spacing",
+  "care_tips_zh": "fluent Chinese translation of care_tips_en"
 }
 
 Infer reasonable values if the blurb is short. Always fill every field.`;
@@ -248,6 +290,9 @@ Return ONLY valid JSON, no markdown, no commentary:
   "name_zh": "natural Chinese name",
   "variety_zh": "Chinese translation of variety_en",
   "description_zh": "fluent Chinese translation of description_en",
+  "category": "broad category in English (e.g. 'Tomato', 'Pepper', 'Greens', 'Herb')",
+  "care_tips_en": "1-3 sentence practical care tips: light, water, spacing, when to transplant",
+  "care_tips_zh": "fluent Chinese translation of care_tips_en",
   "image_url": "the single best image URL from the candidates above, or empty string"
 }`;
 
@@ -308,7 +353,7 @@ app.post('/api/checkout', (req, res) => {
   });
   try {
     const r = tx();
-    sendOrderEmail({ id: r.id, buyer_name, contact, note }, items.map(it => {
+    sendOrderEmail({ id: r.id, buyer_name, contact, note, token: r.token, view_password: r.view_password }, items.map(it => {
       const row = db.prepare('SELECT name_en, name_zh, variety_en FROM seedlings WHERE id=?').get(it.id) || {};
       return { ...row, qty: it.qty };
     }));
@@ -339,6 +384,27 @@ app.get('/api/order/:token', (req, res) => {
 });
 
 app.get('/order', (_, res) => res.sendFile(path.join(__dirname, 'public', 'order.html')));
+
+// Admin: export all orders as CSV
+app.get('/api/admin/orders.csv', requireAdmin, (req, res) => {
+  const rows = db.prepare('SELECT * FROM orders ORDER BY id ASC').all();
+  const esc = v => {
+    const s = String(v == null ? '' : v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const header = ['order_id','time','buyer','contact','note','seedling_id','name_en','name_zh','variety_en','qty'];
+  const lines = [header.join(',')];
+  for (const r of rows) {
+    const items = enrichItems(JSON.parse(r.items_json));
+    const time = new Date(r.created_at).toISOString();
+    for (const it of items) {
+      lines.push([r.id, time, r.buyer_name, r.contact||'', r.note||'', it.id, it.name_en||'', it.name_zh||'', it.variety_en||'', it.qty].map(esc).join(','));
+    }
+  }
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="orders-${new Date().toISOString().slice(0,10)}.csv"`);
+  res.send('\ufeff' + lines.join('\n'));
+});
 
 app.delete('/api/admin/orders/:id', requireAdmin, (req, res) => {
   const id = parseInt(req.params.id, 10);
