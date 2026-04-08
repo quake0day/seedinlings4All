@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Order / 订单</title>
+<style>
+  body { font-family:-apple-system,"PingFang SC",sans-serif; max-width:600px; margin:0 auto; padding:20px; background:#f5f8f2; }
+  h1 { color:#3a7d44; }
+  .box { background:#fff; padding:18px; border-radius:10px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+  input { width:100%; padding:10px; font-size:15px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box; margin-bottom:10px; }
+  button { background:#3a7d44; color:#fff; border:none; padding:10px 20px; border-radius:6px; font-size:15px; cursor:pointer; }
+  .item { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #eee; }
+  .item img { width:60px; height:60px; object-fit:cover; border-radius:6px; background:#e8efe2; }
+  .item .nm { flex:1; }
+  .qty { font-weight:600; color:#3a7d44; }
+  .err { color:#c0392b; }
+</style>
+</head>
+<body>
+<h1>🌱 My Order / 我的订单</h1>
+<div class="box" id="loginBox">
+  <p>Enter the password from your receipt / 输入收据上的密码:</p>
+  <input id="pw" type="text" inputmode="numeric" placeholder="6-digit password / 6位密码" />
+  <button onclick="load()">View / 查看</button>
+  <div id="err" class="err" style="margin-top:10px;"></div>
+</div>
+<div id="orderBox" style="display:none;"></div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const token = params.get('t') || location.pathname.split('/').pop();
+if (params.get('pw')) { document.getElementById('pw').value = params.get('pw'); load(); }
+
+async function load() {
+  const pw = document.getElementById('pw').value.trim();
+  if (!pw) return;
+  const r = await fetch('/api/order/' + encodeURIComponent(token) + '?pw=' + encodeURIComponent(pw));
+  const j = await r.json();
+  if (!r.ok) { document.getElementById('err').textContent = j.error || 'Error'; return; }
+  document.getElementById('loginBox').style.display = 'none';
+  const box = document.getElementById('orderBox');
+  box.style.display = 'block';
+  const total = j.items.reduce((a,it)=>a+it.qty,0);
+  box.innerHTML = `
+    <div class="box">
+      <h2 style="margin-top:0;">Order #${j.id}</h2>
+      <p><b>${esc(j.buyer_name)}</b>${j.contact?' · '+esc(j.contact):''}</p>
+      <p style="color:#888;">${new Date(j.created_at).toLocaleString()}</p>
+      ${j.note?`<p>📝 ${esc(j.note)}</p>`:''}
+    </div>
+    <div class="box">
+      ${j.items.map(it=>`
+        <div class="item">
+          ${it.image?`<img src="${it.image}">`:'<div style="width:60px;height:60px;background:#e8efe2;border-radius:6px;display:flex;align-items:center;justify-content:center;">🌱</div>'}
+          <div class="nm">
+            <div>${esc(it.name_en||'')}</div>
+            <div style="color:#666;font-size:14px;">${esc(it.name_zh||'')}</div>
+            ${it.variety_en?`<div style="color:#888;font-size:12px;">${esc(it.variety_en)}</div>`:''}
+          </div>
+          <div class="qty">× ${it.qty}</div>
+        </div>
+      `).join('')}
+      <p style="text-align:right;margin-top:14px;"><b>Total / 共: ${total}</b></p>
+    </div>
+  `;
+}
+function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+</script>
+</body>
+</html>

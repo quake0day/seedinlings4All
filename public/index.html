@@ -74,7 +74,10 @@ const T = {
     submit: 'Place order', empty: "No seedlings yet — check back soon~",
     cartEmpty: 'Your cart is empty', noStock: 'Not enough stock',
     needName: 'Please enter your name', needItems: 'Your cart is empty',
-    success: (id) => `Order placed! Order #${id}, the owner will contact you 🌱`,
+    success: 'Order placed! 🌱',
+    yourLink: 'Your order link (save it):',
+    yourPw: 'Password to view:',
+    copy: 'Copy link', copied: 'Copied!',
     langSwap: '中文', langHref: '/cn'
   },
   zh: {
@@ -84,7 +87,10 @@ const T = {
     submit: '提交订单', empty: '还没有菜苗,等老板上架~',
     cartEmpty: '购物车空空如也', noStock: '库存不足',
     needName: '请填写你的名字', needItems: '购物车是空的',
-    success: (id) => `下单成功!订单号 #${id},老板会联系你 🌱`,
+    success: '下单成功!🌱',
+    yourLink: '你的订单链接(请保存):',
+    yourPw: '查看密码:',
+    copy: '复制链接', copied: '已复制!',
     langSwap: 'English', langHref: '/'
   }
 }[LANG];
@@ -185,12 +191,34 @@ document.getElementById('submitBtn').onclick = async ()=>{
   });
   const j = await r.json();
   if (!r.ok) { alert(j.error || 'Error'); load(); return; }
-  alert(T.success(j.orderId));
+  showOrderResult(j);
   for (const k in cart) delete cart[k];
   document.getElementById('buyer').value=''; document.getElementById('contact').value=''; document.getElementById('note').value='';
   document.getElementById('mask').click();
   load();
 };
+function showOrderResult(j) {
+  const url = location.origin + '/order?t=' + j.token;
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:99;padding:20px;';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:12px;padding:24px;max-width:420px;width:100%;">
+      <h2 style="margin:0 0 12px;color:#3a7d44;">${T.success}</h2>
+      <p style="font-size:14px;color:#555;margin:6px 0 4px;">${T.yourLink}</p>
+      <div style="background:#f5f8f2;padding:8px;border-radius:6px;font-size:12px;word-break:break-all;margin-bottom:10px;">${url}</div>
+      <p style="font-size:14px;color:#555;margin:10px 0 4px;">${T.yourPw}</p>
+      <div style="background:#fff8e1;padding:10px;border-radius:6px;font-size:22px;font-weight:700;text-align:center;letter-spacing:4px;color:#c0392b;margin-bottom:14px;">${j.view_password}</div>
+      <div style="display:flex;gap:8px;">
+        <button id="copyBtn" style="flex:1;background:#3a7d44;color:#fff;border:none;padding:10px;border-radius:6px;cursor:pointer;">${T.copy}</button>
+        <button id="closeBtn" style="flex:1;background:#888;color:#fff;border:none;padding:10px;border-radius:6px;cursor:pointer;">OK</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('#copyBtn').onclick = async () => {
+    try { await navigator.clipboard.writeText(url + '\n' + (LANG==='zh'?'密码':'Password')+': ' + j.view_password); modal.querySelector('#copyBtn').textContent = T.copied; } catch {}
+  };
+  modal.querySelector('#closeBtn').onclick = () => modal.remove();
+}
 load();
 setInterval(load, 3000);
 </script>

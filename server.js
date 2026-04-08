@@ -38,6 +38,20 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at INTEGER NOT NULL
 );
 `);
+// Migration: add token + view_password columns if missing
+const cols = db.prepare("PRAGMA table_info(orders)").all().map(c => c.name);
+if (!cols.includes('token')) db.exec("ALTER TABLE orders ADD COLUMN token TEXT");
+if (!cols.includes('view_password')) db.exec("ALTER TABLE orders ADD COLUMN view_password TEXT");
+
+// Enrich items with current seedling names (so renames in admin propagate to orders)
+function enrichItems(items) {
+  const stmt = db.prepare('SELECT name_en, name_zh, variety_en, variety_zh, image FROM seedlings WHERE id=?');
+  return items.map(it => {
+    const cur = stmt.get(it.id);
+    if (cur) return { ...it, name_en: cur.name_en, name_zh: cur.name_zh, variety_en: cur.variety_en, variety_zh: cur.variety_zh, image: cur.image };
+    return it;
+  });
+}
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -265,14 +279,16 @@ app.post('/api/checkout', (req, res) => {
       db.prepare('UPDATE seedlings SET stock = stock - ? WHERE id=?').run(qty, id);
       detailed.push({ id, name_en: row.name_en, name_zh: row.name_zh, variety_en: row.variety_en, variety_zh: row.variety_zh, qty });
     }
+    const token = crypto.randomBytes(12).toString('hex');
+    const view_password = crypto.randomInt(100000, 1000000).toString();
     const info = db.prepare(
-      'INSERT INTO orders (buyer_name, contact, note, items_json, lang, created_at) VALUES (?,?,?,?,?,?)'
-    ).run(buyer_name, contact||'', note||'', JSON.stringify(detailed), lang||'en', Date.now());
-    return info.lastInsertRowid;
+      'INSERT INTO orders (buyer_name, contact, note, items_json, lang, created_at, token, view_password) VALUES (?,?,?,?,?,?,?,?)'
+    ).run(buyer_name, contact||'', note||'', JSON.stringify(detailed), lang||'en', Date.now(), token, view_password);
+    return { id: info.lastInsertRowid, token, view_password };
   });
   try {
-    const orderId = tx();
-    res.json({ ok: true, orderId });
+    const r = tx();
+    res.json({ ok: true, orderId: r.id, token: r.token, view_password: r.view_password });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -280,8 +296,25 @@ app.post('/api/checkout', (req, res) => {
 
 app.get('/api/admin/orders', requireAdmin, (req, res) => {
   const rows = db.prepare('SELECT * FROM orders ORDER BY id DESC').all();
-  res.json(rows.map(r => ({ ...r, items: JSON.parse(r.items_json) })));
+  res.json(rows.map(r => ({ ...r, items: enrichItems(JSON.parse(r.items_json)) })));
 });
+
+// Public: look up your order with token + password
+app.get('/api/order/:token', (req, res) => {
+  const row = db.prepare('SELECT * FROM orders WHERE token=?').get(req.params.token);
+  if (!row) return res.status(404).json({ error: 'Order not found' });
+  if (req.query.pw !== row.view_password) return res.status(401).json({ error: 'Wrong password' });
+  res.json({
+    id: row.id,
+    buyer_name: row.buyer_name,
+    contact: row.contact,
+    note: row.note,
+    created_at: row.created_at,
+    items: enrichItems(JSON.parse(row.items_json))
+  });
+});
+
+app.get('/order', (_, res) => res.sendFile(path.join(__dirname, 'public', 'order.html')));
 
 app.delete('/api/admin/orders/:id', requireAdmin, (req, res) => {
   db.prepare('DELETE FROM orders WHERE id=?').run(parseInt(req.params.id, 10));
