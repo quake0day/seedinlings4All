@@ -81,6 +81,11 @@
   .desc::after { content:""; position:absolute; bottom:0; left:0; right:0; height:1.6em; background:linear-gradient(transparent,#fff); pointer-events:none; }
   .desc.expanded::after { display:none; }
   .desc-toggle { color:var(--green); font-weight:600; font-size:15px; cursor:pointer; margin-top:4px; user-select:none; }
+  @media (min-width: 601px) {
+    .desc { max-height:none; }
+    .desc::after { display:none; }
+    .desc-toggle { display:none; }
+  }
   .row { display:flex; align-items:center; justify-content:space-between; margin-top:12px; gap:8px; }
   .stock { font-size:17px; font-weight:600; color:var(--muted); }
   .stock.low { color:var(--red); }
