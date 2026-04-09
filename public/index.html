@@ -7,37 +7,37 @@
 <style>
   :root { --green:#3a7d44; --bg:#f5f8f2; --card:#fff; --muted:#6b7a60; }
   * { box-sizing: border-box; }
-  body { margin:0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background:var(--bg); color:#222; font-size:17px; line-height:1.55; }
-  body.big { font-size:22px; }
-  body.big .card h3 { font-size:22px; }
-  body.big .variety { font-size:17px; }
-  body.big .desc { font-size:17px; }
-  body.big .stock { font-size:16px; }
-  body.big .add { font-size:18px; padding:10px 18px; }
-  body.big header h1 { font-size:26px; }
-  body.big .cat-title { font-size:24px; }
-  body.big .checkout input, body.big .checkout textarea { font-size:18px; padding:12px; }
-  body.big .checkout button { font-size:20px; padding:16px; }
-  body.big .item .info { font-size:18px; }
-  body.big .qty button { width:32px; height:32px; font-size:18px; }
-  body.big .drawer h2 { font-size:22px; }
+  body { margin:0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background:var(--bg); color:#222; font-size:22px; line-height:1.6; }
+  body.big { font-size:28px; }
+  body.big .card h3 { font-size:28px; }
+  body.big .variety { font-size:21px; }
+  body.big .desc { font-size:21px; }
+  body.big .stock { font-size:20px; }
+  body.big .add { font-size:22px; padding:14px 22px; }
+  body.big header h1 { font-size:32px; }
+  body.big .cat-title { font-size:30px; }
+  body.big .checkout input, body.big .checkout textarea { font-size:22px; padding:14px; }
+  body.big .checkout button { font-size:24px; padding:18px; }
+  body.big .item .info { font-size:22px; }
+  body.big .qty button { width:38px; height:38px; font-size:22px; }
+  body.big .drawer h2 { font-size:26px; }
   header { background:var(--green); color:#fff; padding:18px 20px; display:flex; justify-content:space-between; align-items:center; gap:12px; position:sticky; top:0; z-index:10; }
-  header h1 { margin:0; font-size:20px; flex:1; }
+  header h1 { margin:0; font-size:26px; flex:1; }
   .lang { background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.4); color:#fff; padding:6px 12px; border-radius:16px; cursor:pointer; font-size:14px; text-decoration:none; }
   .big-btn { background:#fff8e1; border:2px solid #f59e0b; color:#92400e; padding:8px 14px; border-radius:20px; cursor:pointer; font-size:15px; font-weight:700; }
   .big-btn.on { background:#f59e0b; color:#fff; }
   #cartBtn { background:#fff; color:var(--green); border:none; padding:8px 14px; border-radius:20px; font-weight:600; cursor:pointer; }
   main { max-width: 1100px; margin: 0 auto; padding: 20px; }
   .grid { display:block; }
-  .cat-title { color:var(--green); border-bottom:2px solid var(--green); padding-bottom:6px; margin:24px 0 12px; font-size:18px; }
-  .cat-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:16px; }
+  .cat-title { color:var(--green); border-bottom:2px solid var(--green); padding-bottom:6px; margin:28px 0 14px; font-size:24px; }
+  .cat-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:18px; }
   .card { background:var(--card); border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.06); display:flex; flex-direction:column; }
   .card img { width:100%; height:180px; object-fit:cover; background:#e8efe2; }
   .ph { height:180px; display:flex; align-items:center; justify-content:center; background:#e8efe2; font-size:48px; }
   .body { padding:12px; flex:1; display:flex; flex-direction:column; }
-  .body h3 { margin:0 0 4px; font-size:18px; }
-  .variety { color:var(--muted); font-size:14px; margin-bottom:6px; }
-  .desc { font-size:14px; color:#444; flex:1; white-space:pre-wrap; line-height:1.5; }
+  .body h3 { margin:0 0 6px; font-size:22px; }
+  .variety { color:var(--muted); font-size:17px; margin-bottom:8px; }
+  .desc { font-size:17px; color:#444; flex:1; white-space:pre-wrap; line-height:1.55; }
   .row { display:flex; align-items:center; justify-content:space-between; margin-top:10px; }
   .stock { font-size:12px; color:var(--muted); }
   .stock.low { color:#c0392b; }
