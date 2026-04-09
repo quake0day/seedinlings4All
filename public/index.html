@@ -14,6 +14,14 @@
   }
   * { box-sizing: border-box; }
   body { margin:0; font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:#222; font-size:22px; line-height:1.6; }
+  html[lang="en"] body { font-size:18px; }
+  html[lang="en"] .body h3 { font-size:19px; }
+  html[lang="en"] .variety, html[lang="en"] .desc { font-size:15px; }
+  html[lang="en"] .stock { font-size:15px; }
+  html[lang="en"] .add { font-size:15px; padding:9px 16px; }
+  html[lang="en"] header h1 { font-size:20px; }
+  html[lang="en"] .cat-title { font-size:21px; }
+  html[lang="en"] .desc { max-height:9.5em; }
   body.big { font-size:28px; }
   body.big .card h3 { font-size:28px; }
   body.big .variety { font-size:21px; }
@@ -68,7 +76,7 @@
   .body { padding:14px; flex:1; display:flex; flex-direction:column; }
   .body h3 { margin:0 0 6px; font-size:22px; }
   .variety { color:var(--muted); font-size:17px; margin-bottom:8px; }
-  .desc { font-size:17px; color:#444; flex:1; white-space:pre-wrap; line-height:1.55; max-height:7.5em; overflow:hidden; position:relative; }
+  .desc { font-size:17px; color:#444; flex:1; white-space:pre-wrap; line-height:1.55; max-height:11em; overflow:hidden; position:relative; }
   .desc.expanded { max-height:none; }
   .desc::after { content:""; position:absolute; bottom:0; left:0; right:0; height:1.6em; background:linear-gradient(transparent,#fff); pointer-events:none; }
   .desc.expanded::after { display:none; }
@@ -325,7 +333,7 @@ function render() {
       const outBadge = s.stock === 0 ? `<span class="tag out">${T.soldOut}</span>` : '';
       const desc = esc(pick(s,'description'));
       const isExpanded = expanded.has(s.id);
-      const long = (pick(s,'description')||'').length > 120;
+      const long = (pick(s,'description')||'').length > (LANG==='zh' ? 220 : 320);
       return `
       <div class="card" data-id="${s.id}">
         <div class="badges">${outBadge}${lowBadge}</div>
