@@ -56,7 +56,9 @@
   .mask.show { display:block; }
   .drawer { position:fixed; right:0; top:0; bottom:0; width:min(420px, 100%); background:#fff; transform:translateX(100%); transition:transform .25s; z-index:21; display:flex; flex-direction:column; }
   .drawer.show { transform:none; }
-  .drawer h2 { margin:0; padding:16px; border-bottom:1px solid #eee; font-size:18px; }
+  .drawer-head { display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid #eee; }
+  .drawer-head h2 { margin:0; font-size:20px; flex:1; }
+  .back-btn { background:#eef6ea; color:var(--green); border:1px solid var(--green); padding:8px 14px; border-radius:18px; cursor:pointer; font-size:15px; font-weight:600; }
   .items { flex:1; overflow:auto; padding:12px 16px; }
   .item { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
   .item img { width:50px; height:50px; object-fit:cover; border-radius:6px; }
@@ -81,7 +83,10 @@
 
 <div class="mask" id="mask"></div>
 <aside class="drawer" id="drawer">
-  <h2 id="cartTitle">My Cart</h2>
+  <div class="drawer-head">
+    <button class="back-btn" id="backBtn" type="button">← <span id="backLabel">Keep shopping</span></button>
+    <h2 id="cartTitle">My Cart</h2>
+  </div>
   <div class="items" id="cartItems"></div>
   <div class="checkout">
     <input id="buyer" />
@@ -101,7 +106,7 @@ const T = {
     submit: 'Place order', empty: "No seedlings yet — check back soon~",
     cartEmpty: 'Your cart is empty', noStock: 'Not enough stock',
     needName: 'Please enter your name', needItems: 'Your cart is empty',
-    bigOn: 'Normal text', bigOff: 'Large text',
+    bigOn: 'Normal text', bigOff: 'Large text', back: 'Keep shopping',
     success: 'Order placed! 🌱',
     yourLink: 'Your order link (save it):',
     yourPw: 'Password to view:',
@@ -115,7 +120,7 @@ const T = {
     submit: '提交订单', empty: '还没有菜苗,等老板上架~',
     cartEmpty: '购物车空空如也', noStock: '库存不足',
     needName: '请填写你的名字', needItems: '购物车是空的',
-    bigOn: '正常字号', bigOff: '大字模式',
+    bigOn: '正常字号', bigOff: '大字模式', back: '继续选购',
     success: '下单成功!🌱',
     yourLink: '你的订单链接(请保存):',
     yourPw: '查看密码:',
@@ -235,6 +240,8 @@ window.addEventListener('popstate', () => {
 });
 document.getElementById('cartBtn').onclick = openCart;
 document.getElementById('mask').onclick = () => closeCart(false);
+document.getElementById('backBtn').onclick = () => closeCart(false);
+document.getElementById('backLabel').textContent = T.back;
 document.getElementById('submitBtn').onclick = async ()=>{
   const buyer = document.getElementById('buyer').value.trim();
   if (!buyer) { alert(T.needName); return; }
