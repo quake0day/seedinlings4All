@@ -277,6 +277,7 @@ langLink.textContent = T.langSwap;
 langLink.href = T.langHref;
 
 let seedlings = [];
+let lastSeedlingsHash = '';
 const cart = {};
 const expanded = new Set(); // ids whose desc is expanded
 let firstLoad = true;
@@ -296,9 +297,34 @@ async function load() {
     document.getElementById('grid').innerHTML = `<div class="skel-grid">${Array.from({length:6}).map(()=>'<div class="skel"><div class="skel-img"></div><div class="skel-line"></div><div class="skel-line short"></div></div>').join('')}</div>`;
   }
   const r = await fetch('/api/seedlings');
-  seedlings = await r.json();
-  firstLoad = false;
-  render();
+  const next = await r.json();
+  const hash = JSON.stringify(next.map(s=>[s.id,s.stock,s.image,s.name_en,s.name_zh,s.description_en,s.description_zh,s.category,s.sort_order]));
+  const changed = hash !== lastSeedlingsHash;
+  seedlings = next;
+  if (changed || firstLoad) {
+    lastSeedlingsHash = hash;
+    firstLoad = false;
+    render();
+  } else {
+    // Only refresh stock numbers + add-button state, don't touch images
+    for (const s of seedlings) {
+      const card = document.querySelector(`.card[data-id="${s.id}"]`);
+      if (!card) continue;
+      const stockEl = card.querySelector('.stock');
+      if (stockEl) {
+        stockEl.textContent = `${T.stock}: ${s.stock}`;
+        stockEl.classList.toggle('low', s.stock <= 3);
+      }
+      const inCart = cart[s.id] || 0;
+      const remaining = s.stock - inCart;
+      const btn = card.querySelector('.add');
+      if (btn) {
+        btn.disabled = remaining <= 0;
+        btn.textContent = remaining <= 0 ? T.soldOut : T.addCart;
+      }
+    }
+    updateCartUI();
+  }
 }
 
 function render() {
@@ -338,7 +364,6 @@ function render() {
       const outBadge = s.stock === 0 ? `<span class="tag out">${T.soldOut}</span>` : '';
       const desc = esc(pick(s,'description'));
       const isExpanded = expanded.has(s.id);
-      const long = (pick(s,'description')||'').length > (LANG==='zh' ? 220 : 320);
       return `
       <div class="card" data-id="${s.id}">
         <div class="badges">${outBadge}${lowBadge}</div>
@@ -349,7 +374,7 @@ function render() {
           <h3>${esc(pick(s,'name'))}</h3>
           <div class="variety">${esc(pick(s,'variety'))}</div>
           <div class="desc${isExpanded?' expanded':''}" id="desc-${s.id}">${desc}</div>
-          ${long ? `<div class="desc-toggle" onclick="toggleDesc(${s.id})">${isExpanded?T.collapse:T.expand}</div>` : ''}
+          <div class="desc-toggle" id="tog-${s.id}" onclick="toggleDesc(${s.id})" style="display:none;">${isExpanded?T.collapse:T.expand}</div>
           <div class="row">
             <span class="stock ${s.stock<=3?'low':''}">${T.stock}: ${s.stock}</span>
             <button class="add" ${remaining<=0?'disabled':''} onclick="addCart(${s.id})">
@@ -362,6 +387,17 @@ function render() {
     const heading = cat ? `<h2 class="cat-title" id="${slug(cat)}">${esc(cat)}</h2>` : '';
     return `${heading}<div class="cat-grid">${items}</div>`;
   }).join('');
+  // Show "Read more" only if the description actually overflows the clamp
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.desc').forEach(d => {
+      const id = d.id.replace('desc-','');
+      const tog = document.getElementById('tog-'+id);
+      if (!tog) return;
+      // The CSS @media (min-width:601px) hides toggle on desktop already
+      const overflowing = d.scrollHeight > d.clientHeight + 2;
+      if (overflowing || expanded.has(+id)) tog.style.display = 'block';
+    });
+  });
   updateCartUI();
 }
 
