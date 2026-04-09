@@ -18,6 +18,15 @@
   .row { display:flex; gap:10px; align-items:center; }
   img.thumb { width:60px; height:60px; object-fit:cover; border-radius:4px; }
   .order-items { margin:0; padding-left:18px; }
+  @media print {
+    body { background:#fff; max-width:none; padding:0; }
+    h1, .box:not(#printOrders), button, label, input, textarea, table, h2 { display:none !important; }
+    #printOrders { display:block !important; box-shadow:none; padding:0; margin:0; }
+    #printOrders h2 { display:block !important; font-size:20px; margin-bottom:10px; }
+    #orders > div { break-inside:avoid; border:1px solid #888 !important; margin-bottom:8px !important; padding:10px !important; }
+    #orders > div button { display:none !important; }
+    #orders { display:block !important; }
+  }
 </style>
 </head>
 <body>
@@ -111,8 +120,13 @@
   </tr></thead><tbody></tbody></table>
 </div>
 
-<div class="box">
-  <h2>Orders / 订单 <button onclick="downloadCSV()" style="float:right;font-size:13px;padding:6px 12px;">⬇ Export CSV</button></h2>
+<div class="box" id="printOrders">
+  <h2>Orders / 订单
+    <span style="float:right;">
+      <button onclick="window.print()" style="font-size:13px;padding:6px 12px;background:#475569;">🖨 Print</button>
+      <button onclick="downloadCSV()" style="font-size:13px;padding:6px 12px;">⬇ CSV</button>
+    </span>
+  </h2>
   <div id="orders"></div>
 </div>
 
