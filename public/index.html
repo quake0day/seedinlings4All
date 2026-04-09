@@ -219,8 +219,22 @@ function updateCartUI() {
     </div>`;
   }).join('');
 }
-document.getElementById('cartBtn').onclick = ()=>{ document.getElementById('drawer').classList.add('show'); document.getElementById('mask').classList.add('show'); };
-document.getElementById('mask').onclick = ()=>{ document.getElementById('drawer').classList.remove('show'); document.getElementById('mask').classList.remove('show'); };
+function openCart() {
+  if (document.getElementById('drawer').classList.contains('show')) return;
+  document.getElementById('drawer').classList.add('show');
+  document.getElementById('mask').classList.add('show');
+  history.pushState({ cart: true }, '', location.href);
+}
+function closeCart(fromPop) {
+  document.getElementById('drawer').classList.remove('show');
+  document.getElementById('mask').classList.remove('show');
+  if (!fromPop && history.state && history.state.cart) history.back();
+}
+window.addEventListener('popstate', () => {
+  if (document.getElementById('drawer').classList.contains('show')) closeCart(true);
+});
+document.getElementById('cartBtn').onclick = openCart;
+document.getElementById('mask').onclick = () => closeCart(false);
 document.getElementById('submitBtn').onclick = async ()=>{
   const buyer = document.getElementById('buyer').value.trim();
   if (!buyer) { alert(T.needName); return; }
@@ -240,7 +254,7 @@ document.getElementById('submitBtn').onclick = async ()=>{
   showOrderResult(j);
   for (const k in cart) delete cart[k];
   document.getElementById('buyer').value=''; document.getElementById('contact').value=''; document.getElementById('note').value='';
-  document.getElementById('mask').click();
+  closeCart(false);
   load();
 };
 function showOrderResult(j) {
