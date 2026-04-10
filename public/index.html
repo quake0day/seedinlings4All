@@ -14,14 +14,16 @@
   }
   * { box-sizing: border-box; }
   body { margin:0; font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:#222; font-size:22px; line-height:1.6; }
-  html[lang="en"] body { font-size:18px; }
-  html[lang="en"] .body h3 { font-size:19px; }
-  html[lang="en"] .variety, html[lang="en"] .desc { font-size:15px; }
-  html[lang="en"] .stock { font-size:15px; }
-  html[lang="en"] .add { font-size:15px; padding:9px 16px; }
-  html[lang="en"] header h1 { font-size:20px; }
-  html[lang="en"] .cat-title { font-size:21px; }
-  html[lang="en"] .desc { max-height:9.5em; }
+  html[lang="en"] body { font-size:16px; }
+  html[lang="en"] .body h3 { font-size:17px; }
+  html[lang="en"] .variety, html[lang="en"] .desc { font-size:14px; }
+  html[lang="en"] .stock { font-size:14px; }
+  html[lang="en"] .add { font-size:14px; padding:9px 16px; }
+  html[lang="en"] header h1 { font-size:18px; }
+  html[lang="en"] .cat-title { font-size:19px; }
+  html[lang="en"] .desc { max-height:none; overflow:visible; }
+  html[lang="en"] .desc::after { display:none; }
+  html[lang="en"] .desc-toggle { display:none; }
   body.big { font-size:28px; }
   body.big .card h3 { font-size:28px; }
   body.big .variety { font-size:21px; }
