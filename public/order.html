@@ -2,35 +2,145 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#f8f8f0" />
 <title>Order / 订单</title>
+<link rel="stylesheet" href="/animal-ui.css" />
 <style>
-  body { font-family:-apple-system,"PingFang SC",sans-serif; max-width:600px; margin:0 auto; padding:20px; background:#f5f8f2; }
-  h1 { color:#3a7d44; }
-  .box { background:#fff; padding:18px; border-radius:10px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
-  input { width:100%; padding:10px; font-size:15px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box; margin-bottom:10px; }
-  button { background:#3a7d44; color:#fff; border:none; padding:10px 20px; border-radius:6px; font-size:15px; cursor:pointer; }
-  .item { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #eee; }
-  .item img { width:60px; height:60px; object-fit:cover; border-radius:6px; background:#e8efe2; }
-  .item .nm { flex:1; }
-  .qty { font-weight:600; color:#3a7d44; }
-  .err { color:#c0392b; }
+  main { max-width: 620px; margin:0 auto; padding:20px; }
+  h1 {
+    color:var(--ac-text); margin:6px 0 18px; font-size:24px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .box {
+    background:#fffdf5;
+    border:2.5px solid var(--ac-border-soft);
+    border-radius:var(--ac-radius-lg);
+    padding:22px;
+    margin-bottom:18px;
+    box-shadow: 0 5px 0 0 var(--ac-shadow-3d-soft);
+  }
+  .box h2 { color:var(--ac-text); margin:0 0 12px; font-size:20px; }
+  .lead { color:var(--ac-text); font-weight:600; margin:0 0 10px; }
+
+  input {
+    width:100%;
+    font-family:var(--ac-font);
+    font-size:18px; font-weight:600;
+    color:var(--ac-text);
+    background:var(--ac-bg-input);
+    border:2.5px solid var(--ac-border-soft);
+    border-radius:var(--ac-radius-pill);
+    padding:0 20px; height:48px;
+    outline:none;
+    letter-spacing:4px; text-align:center;
+    box-shadow:0 3px 0 0 var(--ac-shadow-3d-soft);
+    margin-bottom:12px;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  input:focus {
+    border-color:#ffcc00;
+    box-shadow:0 3px 0 0 #e0b800, 0 0 0 3px rgba(255,204,0,.15);
+  }
+
+  button.go {
+    width:100%;
+    background:var(--ac-primary); color:#fff;
+    border:2px solid var(--ac-primary);
+    padding:0; height:48px;
+    border-radius:var(--ac-radius-pill);
+    font-family:var(--ac-font); font-size:16px; font-weight:800;
+    cursor:pointer;
+    box-shadow:0 5px 0 0 var(--ac-primary-active);
+    transition:transform .15s, box-shadow .15s;
+  }
+  button.go:hover { transform:translateY(-1px); box-shadow:0 6px 0 0 var(--ac-primary-active); }
+  button.go:active { transform:translateY(3px); box-shadow:0 1px 0 0 var(--ac-primary-active); }
+
+  .item {
+    display:flex; align-items:center; gap:12px;
+    padding:12px 0;
+    border-bottom:1px dashed var(--ac-border-soft);
+  }
+  .item:last-of-type { border-bottom:none; }
+  .item img, .item .item-ph {
+    width:64px; height:64px; object-fit:cover; border-radius:12px;
+    background:#f4edd2; border:2px solid var(--ac-border-soft);
+    flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:30px;
+  }
+  .item .nm { flex:1; min-width:0; color:var(--ac-text); }
+  .item .nm .en { font-weight:800; font-size:15px; }
+  .item .nm .zh { color:var(--ac-text-2); font-size:14px; }
+  .item .nm .vr { color:var(--ac-text-muted); font-size:12px; margin-top:2px; }
+  .qty {
+    background:var(--ac-primary); color:#fff;
+    padding:4px 12px; border-radius:var(--ac-radius-pill);
+    font-weight:800; font-size:14px;
+    box-shadow:0 2px 0 0 var(--ac-primary-active);
+  }
+
+  .care-tip {
+    background:#e7f7d5;
+    border:2px solid var(--ac-success);
+    border-radius:var(--ac-radius);
+    padding:10px 14px;
+    margin:4px 0 6px 76px;
+    font-size:13px; color:var(--ac-text);
+    box-shadow:0 3px 0 0 var(--ac-success-active);
+  }
+  .care-tip b { color:var(--ac-success-active); }
+  .care-tip > div { margin-top:4px; line-height:1.5; }
+
+  .total {
+    display:flex; justify-content:space-between; align-items:center;
+    margin-top:14px; padding:12px 14px;
+    background:#fff3c0; border:2px solid var(--ac-warning);
+    border-radius:var(--ac-radius);
+    font-size:16px; font-weight:800; color:#7a5a00;
+    box-shadow:0 3px 0 0 var(--ac-warning-active);
+  }
+
+  .err { color:var(--ac-error); font-weight:700; margin-top:10px; }
+
+  .meta {
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    color:var(--ac-text-2); font-size:13px; font-weight:600;
+    margin:0 0 8px;
+  }
+  .note {
+    background:#fff8e1; border:2px dashed var(--ac-warning);
+    padding:10px 14px; border-radius:var(--ac-radius);
+    font-size:14px; color:var(--ac-text);
+    margin-top:8px;
+  }
+
+  @media (max-width: 600px) {
+    main { padding:14px; }
+    .box { padding:16px; }
+    .care-tip { margin-left:0; }
+  }
 </style>
 </head>
-<body>
+<body class="ac-island">
+<main>
 <h1>🌱 My Order / 我的订单</h1>
+
 <div class="box" id="loginBox">
-  <p>Enter the password from your receipt / 输入收据上的密码:</p>
-  <input id="pw" type="text" inputmode="numeric" placeholder="6-digit password / 6位密码" />
-  <button onclick="load()">View / 查看</button>
-  <div id="err" class="err" style="margin-top:10px;"></div>
+  <h2>🔐 View order</h2>
+  <p class="lead">Enter the password from your receipt / 输入收据上的密码</p>
+  <input id="pw" type="text" inputmode="numeric" maxlength="6" placeholder="000000" />
+  <button class="go" onclick="load()">View / 查看</button>
+  <div id="err" class="err"></div>
 </div>
+
 <div id="orderBox" style="display:none;"></div>
+</main>
 
 <script>
 const params = new URLSearchParams(location.search);
 const token = params.get('t') || location.pathname.split('/').pop();
 if (params.get('pw')) { document.getElementById('pw').value = params.get('pw'); load(); }
+document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') load(); });
 
 async function load() {
   const pw = document.getElementById('pw').value.trim();
@@ -44,25 +154,31 @@ async function load() {
   const total = j.items.reduce((a,it)=>a+it.qty,0);
   box.innerHTML = `
     <div class="box">
-      <h2 style="margin-top:0;">Order #${j.id}</h2>
-      <p><b>${esc(j.buyer_name)}</b>${j.contact?' · '+esc(j.contact):''}</p>
-      <p style="color:#888;">${new Date(j.created_at).toLocaleString()}</p>
-      ${j.note?`<p>📝 ${esc(j.note)}</p>`:''}
+      <h2>📦 Order #${j.id}</h2>
+      <div class="meta">
+        <span style="color:var(--ac-text);font-weight:800;">${esc(j.buyer_name)}</span>
+        ${j.contact?`<span>· ${esc(j.contact)}</span>`:''}
+      </div>
+      <div class="meta">🕒 ${new Date(j.created_at).toLocaleString()}</div>
+      ${j.note?`<div class="note">📝 ${esc(j.note)}</div>`:''}
     </div>
     <div class="box">
       ${j.items.map(it=>`
         <div class="item">
-          ${it.image?`<img src="${it.image}">`:'<div style="width:60px;height:60px;background:#e8efe2;border-radius:6px;display:flex;align-items:center;justify-content:center;">🌱</div>'}
+          ${it.image?`<img src="${it.image}">`:'<div class="item-ph">🌱</div>'}
           <div class="nm">
-            <div>${esc(it.name_en||'')}</div>
-            <div style="color:#666;font-size:14px;">${esc(it.name_zh||'')}</div>
-            ${it.variety_en?`<div style="color:#888;font-size:12px;">${esc(it.variety_en)}</div>`:''}
+            <div class="en">${esc(it.name_en||'')}</div>
+            <div class="zh">${esc(it.name_zh||'')}</div>
+            ${it.variety_en?`<div class="vr">${esc(it.variety_en)}</div>`:''}
           </div>
           <div class="qty">× ${it.qty}</div>
         </div>
-        ${(it.care_tips_en||it.care_tips_zh)?`<div style="background:#f5f8f2;border-left:3px solid #3a7d44;padding:8px 10px;margin:0 0 8px 72px;font-size:13px;color:#444;border-radius:0 6px 6px 0;"><b style="color:#3a7d44;">🌱 Care tips / 种植贴士</b>${it.care_tips_en?`<div style="margin-top:4px;">${esc(it.care_tips_en)}</div>`:''}${it.care_tips_zh?`<div style="margin-top:4px;">${esc(it.care_tips_zh)}</div>`:''}</div>`:''}
+        ${(it.care_tips_en||it.care_tips_zh)?`<div class="care-tip"><b>🌱 Care tips / 种植贴士</b>${it.care_tips_en?`<div>${esc(it.care_tips_en)}</div>`:''}${it.care_tips_zh?`<div>${esc(it.care_tips_zh)}</div>`:''}</div>`:''}
       `).join('')}
-      <p style="text-align:right;margin-top:14px;"><b>Total / 共: ${total}</b></p>
+      <div class="total">
+        <span>Total / 共</span>
+        <span>${total} 🌿</span>
+      </div>
     </div>
   `;
 }

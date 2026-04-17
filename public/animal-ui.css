@@ -1,0 +1,472 @@
+/* ================================================================
+   Animal Crossing UI — Seedlings4All
+   Design tokens ported from https://animal-island-ui.netlify.app/
+   Cream bg + brown text + pill buttons with 3D hard-offset shadow,
+   thick rounded borders, bubbly Rounded font.
+   Works on mobile / iPad / desktop via pure CSS.
+   ================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Baloo+2:wght@500;600;700;800&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap');
+
+:root {
+  /* Palette */
+  --ac-primary: #19c8b9;
+  --ac-primary-hover: #3dd4c6;
+  --ac-primary-active: #11a89b;
+  --ac-primary-bg: #e6f9f6;
+
+  --ac-success: #6fba2c;
+  --ac-success-hover: #85cc45;
+  --ac-success-active: #5a9e1e;
+
+  --ac-warning: #f5c31c;
+  --ac-warning-hover: #f7d04a;
+  --ac-warning-active: #dba90e;
+
+  --ac-error: #e05a5a;
+  --ac-error-hover: #e87878;
+  --ac-error-active: #c94444;
+
+  --ac-text: #794f27;
+  --ac-text-2: #9f927d;
+  --ac-text-muted: #c4b89e;
+
+  --ac-border: #9f927d;
+  --ac-border-hover: #827157;
+  --ac-border-soft: #d4c9b4;
+
+  --ac-bg: #f8f8f0;
+  --ac-bg-2: #f0e8d8;
+  --ac-bg-input: #f7f3df;
+  --ac-bg-disabled: #f0ece2;
+
+  --ac-shadow-3d: #bdaea0;         /* button down-shadow */
+  --ac-shadow-3d-soft: #d4c9b4;    /* input down-shadow */
+
+  /* Grass island background */
+  --ac-grass-1: #9fd66b;
+  --ac-grass-2: #7dc44b;
+  --ac-sky-1:   #bfeadf;
+  --ac-sky-2:   #8fd9c8;
+
+  /* Type & metrics */
+  /* Latin: Fredoka (rounded UI font) → headings fall back to Baloo 2 via .ac-display
+     CJK: M PLUS Rounded 1c, PingFang SC, Microsoft YaHei */
+  --ac-font: "Fredoka", "Baloo 2", "M PLUS Rounded 1c",
+             -apple-system, BlinkMacSystemFont, "PingFang SC",
+             "Microsoft YaHei", "Noto Sans JP", "Segoe UI", Roboto, sans-serif;
+  --ac-font-display: "Baloo 2", "Fredoka", "M PLUS Rounded 1c",
+             -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  --ac-radius-sm: 12px;
+  --ac-radius: 18px;
+  --ac-radius-lg: 24px;
+  --ac-radius-pill: 50px;
+
+  --ac-shadow-sm: 0 2px 4px 0 rgba(61,52,40,.06);
+  --ac-shadow: 0 3px 10px 0 rgba(61,52,40,.1);
+  --ac-shadow-lg: 0 8px 24px 0 rgba(61,52,40,.14);
+
+  --ac-ease: cubic-bezier(.4, 0, .2, 1);
+  --ac-dur: .25s;
+  --ac-dur-fast: .15s;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--ac-font);
+  color: var(--ac-text);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--ac-bg);
+}
+
+/* Tiny stars on a soft mint sky (AC island vibe, no images needed) */
+body.ac-island {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 10% 12%, #ffffff70 0 2px, transparent 3px),
+    radial-gradient(circle at 82% 22%, #ffffff70 0 2px, transparent 3px),
+    radial-gradient(circle at 35% 78%, #ffffff80 0 2px, transparent 3px),
+    radial-gradient(circle at 68% 88%, #ffffff55 0 3px, transparent 4px),
+    radial-gradient(circle at 92% 62%, #ffffff60 0 2px, transparent 3px),
+    linear-gradient(180deg, var(--ac-sky-1) 0%, #d5f0e4 45%, var(--ac-bg-2) 100%);
+  background-attachment: fixed;
+}
+
+/* Optional cloud stripe for header area */
+.ac-clouds::before {
+  content: "";
+  position: absolute; inset: 0 0 auto 0;
+  height: 120px;
+  background:
+    radial-gradient(80px 40px at 15% 40%, #fff 98%, transparent 100%),
+    radial-gradient(60px 30px at 45% 70%, #fff 98%, transparent 100%),
+    radial-gradient(90px 40px at 78% 30%, #fff 98%, transparent 100%);
+  opacity: .55;
+  pointer-events: none;
+}
+
+a { color: var(--ac-primary-active); text-decoration: none; }
+a:hover { color: var(--ac-primary-hover); }
+
+h1, h2, h3, h4 {
+  font-family: var(--ac-font-display);
+  font-weight: 700;
+  color: var(--ac-text);
+  letter-spacing: .005em;
+}
+
+/* Tighten Latin punctuation spacing, keep CJK readable */
+html[lang="en"] body, html[lang="en"] .ac-btn, html[lang="en"] input, html[lang="en"] textarea {
+  letter-spacing: .003em;
+}
+
+/* ------------------------------- BUTTONS ------------------------------- */
+.ac-btn {
+  --btn-bg: var(--ac-primary);
+  --btn-fg: #fff;
+  --btn-shadow: var(--ac-primary-active);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--ac-font);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
+  height: 44px;
+  padding: 0 22px;
+  color: var(--btn-fg);
+  background: var(--btn-bg);
+  border: 2px solid var(--btn-bg);
+  border-radius: var(--ac-radius-pill);
+  box-shadow: 0 5px 0 0 var(--btn-shadow);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: transform var(--ac-dur) var(--ac-ease),
+              box-shadow var(--ac-dur) var(--ac-ease),
+              background var(--ac-dur) var(--ac-ease),
+              color var(--ac-dur) var(--ac-ease);
+}
+.ac-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 0 0 var(--btn-shadow); }
+.ac-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 0 var(--btn-shadow); }
+.ac-btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+
+.ac-btn-sm { height: 34px; padding: 0 16px; font-size: 13px; }
+.ac-btn-lg { height: 54px; padding: 0 32px; font-size: 17px; border-radius: var(--ac-radius-pill); }
+.ac-btn-block { display: flex; width: 100%; }
+
+/* Color variants */
+.ac-btn-primary { --btn-bg: var(--ac-primary); --btn-shadow: var(--ac-primary-active); }
+.ac-btn-success { --btn-bg: var(--ac-success); --btn-shadow: var(--ac-success-active); }
+.ac-btn-warning { --btn-bg: var(--ac-warning); --btn-shadow: var(--ac-warning-active); color: #7a5a00; }
+.ac-btn-danger  { --btn-bg: var(--ac-error); --btn-shadow: var(--ac-error-active); }
+.ac-btn-muted   { --btn-bg: #cfc4a8; --btn-shadow: #a89878; color: #513a19; }
+
+/* Cream / default button (looks like leaves paper) */
+.ac-btn-cream {
+  --btn-bg: var(--ac-bg);
+  --btn-shadow: var(--ac-shadow-3d);
+  color: var(--ac-text);
+  border-color: var(--ac-border-soft);
+}
+.ac-btn-cream:hover:not(:disabled) { background: #fdfbee; }
+
+/* Ghost / link-like */
+.ac-btn-ghost {
+  background: transparent; color: var(--ac-text);
+  border: 2px dashed var(--ac-border);
+  box-shadow: none;
+}
+.ac-btn-ghost:hover:not(:disabled) {
+  color: var(--ac-primary-active); border-color: var(--ac-primary);
+  background: rgba(25,200,185,.08);
+  transform: translateY(-1px); box-shadow: var(--ac-shadow-sm);
+}
+.ac-btn-ghost:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
+
+/* Icon-only circle button */
+.ac-icon-btn {
+  width: 38px; height: 38px; padding: 0;
+  border-radius: 50%;
+}
+
+/* ------------------------------- INPUTS -------------------------------- */
+.ac-input, .ac-textarea, .ac-select {
+  width: 100%;
+  display: block;
+  font-family: var(--ac-font);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ac-text);
+  background: var(--ac-bg-input);
+  border: 2.5px solid var(--ac-border-soft);
+  border-radius: var(--ac-radius-pill);
+  padding: 0 18px;
+  height: 44px;
+  outline: none;
+  transition: border-color var(--ac-dur) var(--ac-ease),
+              box-shadow var(--ac-dur) var(--ac-ease);
+  box-shadow: 0 3px 0 0 var(--ac-shadow-3d-soft);
+}
+.ac-textarea {
+  height: auto;
+  padding: 12px 18px;
+  border-radius: var(--ac-radius);
+  resize: vertical;
+  min-height: 70px;
+  line-height: 1.5;
+}
+.ac-input::placeholder, .ac-textarea::placeholder { color: var(--ac-text-muted); }
+
+.ac-input:hover, .ac-textarea:hover, .ac-select:hover {
+  border-color: var(--ac-border-hover);
+  box-shadow: 0 3px 0 0 var(--ac-border-soft);
+}
+.ac-input:focus, .ac-textarea:focus, .ac-select:focus {
+  border-color: #ffcc00;
+  box-shadow: 0 3px 0 0 #e0b800, 0 0 0 3px rgba(255,204,0,.15);
+}
+.ac-input:disabled, .ac-textarea:disabled {
+  background: var(--ac-bg-disabled); color: var(--ac-text-muted);
+  cursor: not-allowed;
+}
+
+.ac-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ac-text-2);
+  margin: 10px 0 6px;
+  letter-spacing: .02em;
+}
+
+/* Checkbox — styled as a leaf-tag toggle */
+.ac-check {
+  display: inline-flex; align-items: center; gap: 8px;
+  cursor: pointer; user-select: none;
+  font-weight: 600; color: var(--ac-text);
+}
+.ac-check input[type=checkbox] {
+  width: 22px; height: 22px;
+  accent-color: var(--ac-primary);
+  cursor: pointer;
+}
+
+/* ------------------------------- CARD ---------------------------------- */
+.ac-card {
+  background: #fff;
+  border: 2px solid var(--ac-border-soft);
+  border-radius: var(--ac-radius-lg);
+  box-shadow: 0 4px 0 0 var(--ac-shadow-3d-soft), var(--ac-shadow-sm);
+  overflow: hidden;
+}
+.ac-card-body { padding: 18px; }
+
+/* Panel — flat paper with subtle border */
+.ac-panel {
+  background: #fffdf5;
+  border: 2px solid var(--ac-border-soft);
+  border-radius: var(--ac-radius);
+  padding: 16px 18px;
+  box-shadow: 0 3px 0 0 var(--ac-shadow-3d-soft);
+}
+
+/* ------------------------------- TAGS ---------------------------------- */
+.ac-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 12px;
+  border-radius: var(--ac-radius-pill);
+  font-size: 12px; font-weight: 700;
+  background: var(--ac-bg-2);
+  color: var(--ac-text);
+  border: 2px solid var(--ac-border-soft);
+}
+.ac-tag-primary { background: var(--ac-primary-bg); color: var(--ac-primary-active); border-color: var(--ac-primary); }
+.ac-tag-warning { background: #fff3c0; color: #846200; border-color: var(--ac-warning); }
+.ac-tag-danger  { background: #ffe2e2; color: #8a2323; border-color: var(--ac-error); }
+.ac-tag-success { background: #e7f7d5; color: #3f6e15; border-color: var(--ac-success); }
+
+/* ------------------------------ HEADER --------------------------------- */
+.ac-header {
+  background: linear-gradient(180deg, #ffffffcc 0%, #fffdf5dd 100%);
+  backdrop-filter: saturate(1.2) blur(6px);
+  -webkit-backdrop-filter: saturate(1.2) blur(6px);
+  border-bottom: 2.5px solid var(--ac-border-soft);
+  box-shadow: 0 2px 0 0 #efe5cb, 0 4px 12px rgba(61,52,40,.06);
+  padding: 12px 18px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  position: sticky; top: 0; z-index: 30;
+}
+.ac-header h1 {
+  font-size: 22px;
+  margin: 0; flex: 1; min-width: 0;
+  letter-spacing: .01em;
+}
+
+/* ------------------------------ LAYOUT --------------------------------- */
+.ac-container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+.ac-stack > * + * { margin-top: 12px; }
+.ac-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.ac-row-between { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+
+/* ------------------------------ MODAL ---------------------------------- */
+.ac-modal-mask {
+  position: fixed; inset: 0;
+  background: rgba(60,48,28,.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 99; padding: 16px;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.ac-modal {
+  background: #fffdf5;
+  border: 2.5px solid var(--ac-border-soft);
+  border-radius: var(--ac-radius-lg);
+  max-width: 480px; width: 100%;
+  max-height: 90vh; overflow: auto;
+  box-shadow: 0 10px 0 0 var(--ac-shadow-3d-soft), 0 20px 50px rgba(61,52,40,.3);
+}
+.ac-modal-head {
+  padding: 22px; text-align: center;
+  background: linear-gradient(135deg, #d3f4ea, #baf0e0);
+  border-bottom: 2px solid var(--ac-border-soft);
+  border-radius: calc(var(--ac-radius-lg) - 2px) calc(var(--ac-radius-lg) - 2px) 0 0;
+}
+.ac-modal-head h2 { margin: 6px 0 0; font-size: 22px; color: var(--ac-text); }
+.ac-modal-body { padding: 18px 22px; }
+.ac-modal-actions { display: flex; gap: 10px; padding: 0 22px 20px; }
+.ac-modal-actions .ac-btn { flex: 1; }
+
+/* ------------------------------ DRAWER --------------------------------- */
+.ac-drawer-mask {
+  position: fixed; inset: 0; background: rgba(60,48,28,.35);
+  display: none; z-index: 40;
+}
+.ac-drawer-mask.show { display: block; }
+.ac-drawer {
+  position: fixed; right: 0; top: 0; bottom: 0;
+  width: min(460px, 100%);
+  background: #fffdf5;
+  border-left: 2.5px solid var(--ac-border-soft);
+  box-shadow: -8px 0 24px rgba(61,52,40,.18);
+  transform: translateX(100%);
+  transition: transform var(--ac-dur) var(--ac-ease);
+  z-index: 41;
+  display: flex; flex-direction: column;
+}
+.ac-drawer.show { transform: none; }
+.ac-drawer-head {
+  display: flex; gap: 10px; align-items: center;
+  padding: 14px 18px;
+  border-bottom: 2px solid var(--ac-border-soft);
+  background: #f5efd9;
+}
+.ac-drawer-head h2 { flex: 1; margin: 0; font-size: 20px; }
+
+/* ------------------------------ TABLE ---------------------------------- */
+.ac-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fffdf5;
+  border: 2px solid var(--ac-border-soft);
+  border-radius: var(--ac-radius);
+  overflow: hidden;
+  font-size: 14px;
+}
+.ac-table th {
+  background: #f5efd9;
+  text-align: left;
+  padding: 12px;
+  color: var(--ac-text);
+  font-weight: 700;
+  border-bottom: 2px solid var(--ac-border-soft);
+}
+.ac-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e9e0c4;
+  vertical-align: middle;
+}
+.ac-table tr:last-child td { border-bottom: none; }
+.ac-table tr:hover td { background: #fff8e1; }
+
+/* ------------------------------- TOAST --------------------------------- */
+.ac-toast {
+  position: fixed; left: 50%; bottom: 34px;
+  transform: translateX(-50%) translateY(22px);
+  background: #fffdf5;
+  color: var(--ac-text);
+  font-weight: 700;
+  padding: 12px 22px;
+  border: 2.5px solid var(--ac-border-soft);
+  border-radius: var(--ac-radius-pill);
+  box-shadow: 0 5px 0 0 var(--ac-shadow-3d-soft), 0 10px 24px rgba(61,52,40,.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: all .25s var(--ac-ease);
+  z-index: 60;
+  max-width: 92%;
+}
+.ac-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ------------------------------ BADGE ---------------------------------- */
+.ac-badge {
+  display: inline-flex;
+  min-width: 22px; height: 22px; padding: 0 7px;
+  align-items: center; justify-content: center;
+  background: var(--ac-error);
+  color: #fff;
+  font-size: 12px; font-weight: 800;
+  border-radius: 11px;
+  border: 2px solid #fff;
+  margin-left: 4px;
+}
+
+/* ------------------------------ UTIL ----------------------------------- */
+.ac-muted { color: var(--ac-text-2); }
+.ac-danger { color: var(--ac-error); }
+.ac-success { color: var(--ac-success-active); }
+.ac-hidden { display: none !important; }
+.ac-center { text-align: center; }
+
+/* ------------------------------ RESPONSIVE ----------------------------- */
+/* iPad portrait & under */
+@media (max-width: 1024px) {
+  .ac-container { padding: 16px; }
+  .ac-header h1 { font-size: 20px; }
+}
+
+/* Phone */
+@media (max-width: 600px) {
+  :root { --ac-radius-lg: 18px; }
+  .ac-container { padding: 12px; }
+  .ac-header { padding: 10px 12px; gap: 6px; }
+  .ac-header h1 { font-size: 17px; flex-basis: 100%; text-align: center; order: -1; }
+  .ac-btn { height: 40px; padding: 0 16px; font-size: 14px; }
+  .ac-btn-sm { height: 32px; padding: 0 12px; font-size: 12px; }
+  .ac-btn-lg { height: 48px; padding: 0 24px; font-size: 15px; }
+  .ac-input, .ac-select { height: 42px; font-size: 14px; }
+  .ac-modal-body { padding: 14px 16px; }
+  .ac-modal-actions { padding: 0 16px 14px; }
+  .ac-table { font-size: 13px; }
+  .ac-table th, .ac-table td { padding: 8px 6px; }
+}
+
+/* Tap targets at least 44px on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .ac-btn { min-height: 44px; }
+}
+
+/* Better print for admin */
+@media print {
+  body, body.ac-island { background: #fff !important; }
+  .ac-header, .ac-btn, .ac-drawer, .ac-modal-mask { display: none !important; }
+  .ac-card, .ac-panel { break-inside: avoid; box-shadow: none; }
+}
